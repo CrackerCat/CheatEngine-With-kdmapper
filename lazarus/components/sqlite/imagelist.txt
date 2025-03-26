@@ -1,3 +1,0 @@
-tsqlitedataset.png
-tsqlitedataset_150.png
-tsqlitedataset_200.png

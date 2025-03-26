@@ -1,2 +1,0 @@
-These are some of the "official" VirtualTreeView demo projects ported to and optimized for Lazarus. 
-More samples can be found at https://github.com/blikblum/VirtualTreeView-Lazarus/tree/lazarus-v5/Demos.

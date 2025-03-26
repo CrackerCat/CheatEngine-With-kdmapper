@@ -1,5 +1,0 @@
-{ "TAChart_barseriestools" : {
-   "Category" : "TAChart",
-   "Keywords" : ["TAChart","bar"],
-   "Description" : "A demonstration of bar chart using TATools. Detecting clicks in the bars and responding. "}
-}

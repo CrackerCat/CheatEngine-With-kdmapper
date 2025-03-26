@@ -1,1 +1,0 @@
-﻿Icons, images designed by Roland Hahn.

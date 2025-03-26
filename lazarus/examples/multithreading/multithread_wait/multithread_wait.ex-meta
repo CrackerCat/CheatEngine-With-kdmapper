@@ -1,5 +1,0 @@
-{ "multithread_wait" : {
-   "Category" : "General",
-   "Keywords" : ["Multithreading"],
-   "Description" : "Demo to show, how a Thread waits for another. \n"}
-}

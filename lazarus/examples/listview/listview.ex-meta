@@ -1,5 +1,0 @@
-{ "listview" : {
-   "Category" : "Beginner",
-   "Keywords" : ["TListView", "SubItems"],
-   "Description" : "Demonstrates TListView, how to add and remove items and sub items."}
-}

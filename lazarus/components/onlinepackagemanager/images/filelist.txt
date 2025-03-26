@@ -1,3 +1,0 @@
-ide/pkg_opm.png
-ide/pkg_opm_150.png
-ide/pkg_opm_200.png

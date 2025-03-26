@@ -1,3 +1,0 @@
-tmemdataset.png
-tmemdataset_150.png
-tmemdataset_200.png

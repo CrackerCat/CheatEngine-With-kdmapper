@@ -1,5 +1,0 @@
-{ "FBAdmin" : {
-   "Category" : "DBase",
-   "Keywords" : ["DBase","FBAdmin","network"],
-   "Description" : "Uses FBAdmin to manage or admin a remote (Interbase?) dabatase."}
-}

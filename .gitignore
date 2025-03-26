@@ -11,3 +11,5 @@
 .vs/
 /Cheat Engine/lib/x86_64-win64/
 /Cheat Engine/*.o
+/lazarus/
+/CE_WITH_QT/

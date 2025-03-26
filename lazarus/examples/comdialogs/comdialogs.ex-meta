@@ -1,5 +1,0 @@
-{ "comdialogs" : {
-   "Category" : "Beginner",
-   "Keywords" : ["Common Dialogs","TOpenDialog","TSaveDialog","TFontDialog","TColorDialog","TSelectDirectoryDialog"],
-   "Description" : "Shows a number of the commong dialog boxes. "}
-}
