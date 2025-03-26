@@ -1,7 +1,9 @@
 # Cheat-Engine-with-kdmapper
 1、Attempt to rewrite the Cheat Engine Windows framework using Qt,may its a big project that take a long time to finish
 
-2、DBK Driver incremental development based on kdmapper(finish)
+2、DBK Driver incremental development based on kdmapper (finished)
+
+If you don't want to wait for my rewrite project to be completed, please replace the DBK32functions.pas file with the official CE project and recompile it 
 
 
 
