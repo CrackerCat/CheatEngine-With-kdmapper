@@ -1,8 +1,10 @@
 # Cheat-Engine-with-kdmapper
 1、Attempt to rewrite the Cheat Engine Windows framework using Qt
+
 2、DBK Driver incremental development based on kdmapper
 
 1、本项目基于两个著名黑客项目增量开发 通过kdmapper手动映射DBK驱动，并重构DBK原DeviceIoControl方法与Cheat Engine的通讯机制，绕过微软签名
+
 2、尝试使用Qt框架，重构CE在Windows平台 amd64 处理器基本功能，本人讨厌pascal，还有lua、java等编程语言，因lazarus 的TForm 特征被各大游戏封禁，CheatEngine作为pascal编程语言相关特征已经无法满足游戏反作弊的要求， 这个重构项目会持续非常久，欢迎大家一起开发，目前重构了界面功能，后续
 会逐渐增加原pascal编程语言的其他功能，PS: 日积月累
 
