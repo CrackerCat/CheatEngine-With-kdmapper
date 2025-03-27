@@ -18,20 +18,27 @@ private:
 
     
     void initCheckBoxVisibility(bool enable);
-    void SetLayoutVisibility(QLayout* targetLayout, bool enable);
+ 
+
+
     void initoriginCombox(QComboBox* changedComboBox);
     void initoriginCombox_Value_Type();
     void initTableWidgetButton();
     void initFindWidget(QWidget* widget);
+    void initAddressTableView(QTableView* tableView);
 
     void resetComboBox(QComboBox* changedComboBox);
     void  EnableCheckBox(QCheckBox* chebox, bool enable);
+
+    void SetLayoutVisibility(QLayout* targetLayout, bool enable);
+    void SetSplitterVisibility(QSplitter* splitter, bool enable);
 
 
     QStringList originalOptions;
     QStringList original_Value_For_Find = {"精确数值","值大于","值小于","介于两者之间的值","未知的初始值"};
     QStringList next_Find_Value_For_Find = { "对比刚刚扫的增加的值","对比刚扫的减小的值","数值增加了多少","数值减小了多少","变了的值","没变的值" };
     
+
     void ValueInput2_enable(bool isenable);
 
 };

@@ -12,6 +12,8 @@ CheatEngine_With_Qt::CheatEngine_With_Qt(QWidget* parent)
 	initoriginCombox_Value_Type();
 	initTableWidgetButton();
 	initFindWidget(ui->tabWidget->widget(0));
+	initAddressTableView(ui->tableView_address);
+
 	//ui->tabWidget->layout()
 
 
@@ -24,18 +26,18 @@ CheatEngine_With_Qt::CheatEngine_With_Qt(QWidget* parent)
 		initCheckBoxVisibility(false);
 		if (text == "介于两者之间的值")
 		{
-			SetLayoutVisibility(ui->FindText, true);
+			SetSplitterVisibility(ui->splitter_13_FindText, true);
 		}
 		else if (text == "未知的初始值")
 		{
-			SetLayoutVisibility(ui->FindText, false);
+			SetSplitterVisibility(ui->splitter_13_FindText, false);
 			EnableCheckBox(ui->checkBox_Not, false);
 			EnableCheckBox(ui->checkBox_6_Only_Simple_Value, false);
 
 		}
 		else if (text == "对比刚刚扫的增加的值" || text == "对比刚扫的减小的值" || text == "变了的值" || text == "没变的值")
 		{
-			SetLayoutVisibility(ui->FindText, false);
+			SetSplitterVisibility(ui->splitter_13_FindText, false);
 			//initCheckBoxVisibility(false);
 			EnableCheckBox(ui->checkBox_Not, false);
 			if (text == "没变的值") EnableCheckBox(ui->checkBox_repeat, true);
@@ -43,7 +45,7 @@ CheatEngine_With_Qt::CheatEngine_With_Qt(QWidget* parent)
 
 
 		else {
-			SetLayoutVisibility(ui->FindText, true);
+			SetSplitterVisibility(ui->splitter_13_FindText, true);
 			ValueInput2_enable(false);
 
 			//initCheckBoxVisibility(false);
@@ -109,7 +111,7 @@ void CheatEngine_With_Qt::initoriginCombox_Value_Type()
 void CheatEngine_With_Qt::initTableWidgetButton()
 {
 
-	connect(ui->pushButton_5_add_newTable, &QPushButton::clicked,
+	connect(ui->pushButton_5_add_TableWidget, &QPushButton::clicked,
 		[&]()
 		{
 			QWidget* newWidget = new QWidget();
@@ -121,7 +123,7 @@ void CheatEngine_With_Qt::initTableWidgetButton()
 			ui->tabWidget->setCurrentIndex(addNumber);
 		});
 
-	connect(ui->pushButton_5_remove_Table_Widget, &QPushButton::clicked, 
+	connect(ui->pushButton_5_remove_TableWidget, &QPushButton::clicked,
 		[&]()
 		{
 			int index = ui->tabWidget->count()-1;
@@ -158,7 +160,7 @@ void CheatEngine_With_Qt::initFindWidget(QWidget* widget)
 	newTableView->setSelectionBehavior(QAbstractItemView::SelectRows);
 
 	// 设置列宽自适应 
-	//newTableView->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+	newTableView->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
 
 	//test add dummy data
 	QStandardItem* addrItem1 = new QStandardItem("0x12343252636262325");
@@ -192,6 +194,44 @@ void CheatEngine_With_Qt::initFindWidget(QWidget* widget)
 
 }
 
+void CheatEngine_With_Qt::initAddressTableView(QTableView* tableView)
+{
+	QStandardItemModel* model = new QStandardItemModel(0, 5, this);
+	QStringList headers;
+	headers << "生效" << "描述" << "地址" << "类型"<<"数值";
+	model->setHorizontalHeaderLabels(headers);
+	tableView->setModel(model);
+
+	// 设置列宽自适应 
+	tableView->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+
+
+	//test data
+	QStandardItem* addrItem1 = new QStandardItem("0x12343252636262325");
+	QStandardItem* currentValueItem1 = new QStandardItem("50");
+	QStandardItem* previousValueItem1 = new QStandardItem("45");
+	QStandardItem* firstLookupItem1 = new QStandardItem("40");
+	model->setItem(0, 0, addrItem1);
+	model->setItem(0, 1, currentValueItem1);
+	model->setItem(0, 2, previousValueItem1);
+	model->setItem(0, 3, firstLookupItem1);
+
+
+
+
+	QStandardItem* addrItem2 = new QStandardItem("0xzuoyuan425522");
+	QStandardItem* currentValueItem2 = new QStandardItem("50");
+	QStandardItem* previousValueItem2 = new QStandardItem("45");
+	QStandardItem* firstLookupItem2 = new QStandardItem("40");
+	model->setItem(2, 0, addrItem2);
+	model->setItem(2, 1, currentValueItem2);
+	model->setItem(2, 2, previousValueItem2);
+	model->setItem(2, 3, firstLookupItem2);
+
+}
+
+
+
 
 
 
@@ -219,25 +259,27 @@ void CheatEngine_With_Qt::ValueInput2_enable(bool isenable)
 
 void CheatEngine_With_Qt::initCheckBoxVisibility(bool enable)
 {
-	// 1. 获取目标布局指针（假设布局对象名为verticalLayout）
-	QLayout* targetLayout = ui->FindMethodSelect;
+	//// 1. 获取目标布局指针（假设布局对象名为verticalLayout）
+	//QLayout* targetLayout = ui->FindMethodSelect;
 
-	// 2. 遍历布局中的全部子项
-	for (int i = 0; i < targetLayout->count(); ++i)
-	{
-		QLayoutItem* item = targetLayout->itemAt(i);
-		if (item->widget())
-		{
-			// 3. 判断是否为QCheckBox类型
-			QCheckBox* checkbox = qobject_cast<QCheckBox*>(item->widget());
-			if (checkbox)
-			{
-				// 4. 设置为不可见
-				checkbox->setVisible(enable);
-				checkbox->setEnabled(enable);
-			}
-		}
-	}
+	//// 2. 遍历布局中的全部子项
+	//for (int i = 0; i < targetLayout->count(); ++i)
+	//{
+	//	QLayoutItem* item = targetLayout->itemAt(i);
+	//	if (item->widget())
+	//	{
+	//		// 3. 判断是否为QCheckBox类型
+	//		QCheckBox* checkbox = qobject_cast<QCheckBox*>(item->widget());
+	//		if (checkbox)
+	//		{
+	//			// 4. 设置为不可见
+	//			checkbox->setVisible(enable);
+	//			checkbox->setEnabled(enable);
+	//		}
+	//	}
+	//}
+
+	SetSplitterVisibility(ui->splitter_Find_seletct_checkBoxs, false);
 	EnableCheckBox(ui->checkBox_Not, true);
 
 	QString text = ui->comboBox_Value_Data_Size->currentText();
@@ -259,7 +301,16 @@ void CheatEngine_With_Qt::SetLayoutVisibility(QLayout* targetLayout, bool enable
 	}
 }
 
-
+void CheatEngine_With_Qt::SetSplitterVisibility(QSplitter* splitter, bool enable)
+{
+	QList<QWidget*> children = splitter->findChildren<QWidget*>();
+	for (QWidget* child : children) {
+		// 隐藏控件
+		child->setVisible(enable);
+		// 禁用控件（屏蔽用户交互）
+		child->setEnabled(enable);
+	}
+}
 
 
 
