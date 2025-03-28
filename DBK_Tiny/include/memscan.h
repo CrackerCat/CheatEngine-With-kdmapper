@@ -64,6 +64,8 @@ typedef struct
 
 
 NTSTATUS ReadPhysicalMemory(char *startaddress, UINT_PTR bytestoread, void *output);
+
+
 BOOLEAN ReadProcessMemory(DWORD PID,PEPROCESS PEProcess,PVOID Address,DWORD Size, PVOID Buffer);
 BOOLEAN WriteProcessMemory(DWORD PID,PEPROCESS PEProcess,PVOID Address,DWORD Size, PVOID Buffer);
 BOOLEAN IsAddressSafe(UINT_PTR StartAddress);

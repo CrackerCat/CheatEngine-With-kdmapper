@@ -49,45 +49,54 @@
     <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Cheat Engine Core\WindowsDebugger.cpp">
+    <ClCompile Include="Cheat_Engine_Core\dbk32\dbk32functions.cpp">
+      <Filter>Header Files\dbk32</Filter>
+    </ClCompile>
+    <ClCompile Include="Cheat_Engine_Core\dbk32\vmxfunction.cpp">
+      <Filter>Header Files\dbk32</Filter>
+    </ClCompile>
+    <ClCompile Include="Cheat_Engine_Core\Filehandler.cpp">
       <Filter>Source Files\CheatEngine_Source</Filter>
     </ClCompile>
-    <ClCompile Include="Cheat Engine Core\NewKernelHandler.cpp">
+    <ClCompile Include="Cheat_Engine_Core\frmEditHistoryUnit.cpp">
+      <Filter>Source Files\CheatEngine_Source</Filter>
+    </ClCompile>
+    <ClCompile Include="Cheat_Engine_Core\NewKernelHandler.cpp">
+      <Filter>Source Files\CheatEngine_Source</Filter>
+    </ClCompile>
+    <ClCompile Include="Cheat_Engine_Core\WindowsDebugger.cpp">
       <Filter>Source Files\CheatEngine_Source</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Cheat Engine Core\dbk32\dbk32functions.h">
+    <ClInclude Include="Cheat_Engine_Core\dbk32\dbk32functions.h">
       <Filter>Header Files\dbk32</Filter>
     </ClInclude>
-    <ClInclude Include="Cheat Engine Core\dbk32\vmxfunction.h">
+    <ClInclude Include="Cheat_Engine_Core\dbk32\vmxfunction.h">
       <Filter>Header Files\dbk32</Filter>
     </ClInclude>
-    <ClInclude Include="Cheat Engine Core\debug.h">
+    <ClInclude Include="Cheat_Engine_Core\debug.h">
       <Filter>Header Files\CheatEngine_include</Filter>
     </ClInclude>
-    <ClInclude Include="Cheat Engine Core\DebuggerInterface.h">
+    <ClInclude Include="Cheat_Engine_Core\Filehandler.h">
       <Filter>Header Files\CheatEngine_include</Filter>
     </ClInclude>
-    <ClInclude Include="Cheat Engine Core\Filehandler.h">
+    <ClInclude Include="Cheat_Engine_Core\frmEditHistoryUnit.h">
       <Filter>Header Files\CheatEngine_include</Filter>
     </ClInclude>
-    <ClInclude Include="Cheat Engine Core\frmEditHistoryUnit.h">
+    <ClInclude Include="Cheat_Engine_Core\Globals.h">
       <Filter>Header Files\CheatEngine_include</Filter>
     </ClInclude>
-    <ClInclude Include="Cheat Engine Core\Globals.h">
+    <ClInclude Include="Cheat_Engine_Core\NewKernelHandler.h">
       <Filter>Header Files\CheatEngine_include</Filter>
     </ClInclude>
-    <ClInclude Include="Cheat Engine Core\NewKernelHandler.h">
+    <ClInclude Include="Cheat_Engine_Core\Winapi.hpp">
       <Filter>Header Files\CheatEngine_include</Filter>
     </ClInclude>
-    <ClInclude Include="Cheat Engine Core\plugin.h">
+    <ClInclude Include="Cheat_Engine_Core\WindowsDebugger.h">
       <Filter>Header Files\CheatEngine_include</Filter>
     </ClInclude>
-    <ClInclude Include="Cheat Engine Core\Winapi.hpp">
-      <Filter>Header Files\CheatEngine_include</Filter>
-    </ClInclude>
-    <ClInclude Include="Cheat Engine Core\WindowsDebugger.hpp">
+    <ClInclude Include="Cheat_Engine_Core\DebuggerInterface.h">
       <Filter>Header Files\CheatEngine_include</Filter>
     </ClInclude>
   </ItemGroup>

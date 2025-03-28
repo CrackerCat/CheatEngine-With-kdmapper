@@ -13,6 +13,8 @@ CheatEngine_With_Qt::CheatEngine_With_Qt(QWidget* parent)
 	initTableWidgetButton();
 	initFindWidget(ui->tabWidget->widget(0));
 	initAddressTableView(ui->tableView_address);
+	initOpenPorcessButton();
+
 
 	//ui->tabWidget->layout()
 
@@ -119,23 +121,30 @@ void CheatEngine_With_Qt::initTableWidgetButton()
 
 
 			int addNumber = ui->tabWidget->count();
-			ui->tabWidget->addTab(newWidget, QString("查找 ")+ QString::number(addNumber+1));
+			ui->tabWidget->addTab(newWidget, QString("查找 ") + QString::number(addNumber + 1));
 			ui->tabWidget->setCurrentIndex(addNumber);
 		});
 
 	connect(ui->pushButton_5_remove_TableWidget, &QPushButton::clicked,
 		[&]()
 		{
-			int index = ui->tabWidget->count()-1;
+
+			int index = ui->tabWidget->count() - 1;
 			if (index > 0)
 			{
-				//ui->tabWidget->setCurrentIndex(index-1);
-				ui->tabWidget->removeTab(index);
+				if (ProcessWidget != ui->tabWidget->widget(index))
+				{
+					ui->tabWidget->setCurrentIndex(index - 1);
+					ui->tabWidget->removeTab(index);
+				}
+				else if (index > 1)
+				{
+					//ui->tabWidget->setCurrentIndex(index - 1);
+					ui->tabWidget->removeTab(index-1);
+				}
 			}
 
 		});
-
-
 }
 
 void CheatEngine_With_Qt::initFindWidget(QWidget* widget)
@@ -190,7 +199,7 @@ void CheatEngine_With_Qt::initFindWidget(QWidget* widget)
 	layout->addWidget(newLabel);
 
 	newTableView->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-	layout->addWidget(newTableView,1);
+	layout->addWidget(newTableView, 1);
 
 }
 
@@ -198,7 +207,7 @@ void CheatEngine_With_Qt::initAddressTableView(QTableView* tableView)
 {
 	QStandardItemModel* model = new QStandardItemModel(0, 5, this);
 	QStringList headers;
-	headers << "生效" << "描述" << "地址" << "类型"<<"数值";
+	headers << "生效" << "描述" << "地址" << "类型" << "数值";
 	model->setHorizontalHeaderLabels(headers);
 	tableView->setModel(model);
 
@@ -230,6 +239,65 @@ void CheatEngine_With_Qt::initAddressTableView(QTableView* tableView)
 
 }
 
+void CheatEngine_With_Qt::initOpenPorcessButton()
+{
+	connect(ui->pushButton_openProcess, &QPushButton::clicked,
+		[&]()
+		{
+			//int x = ui->tabWidget->indexOf(ProcessWidget);
+			if (ui->tabWidget->indexOf(ProcessWidget) == -1)
+			{
+				//QWidget* ProcessWidget = new QWidget();//这个用于添加到最外层的TableWidget
+
+				//添加进程列表的组件
+				ProcessWidget = new QWidget();
+				QVBoxLayout* layout = new QVBoxLayout(ProcessWidget);
+				QTableWidget* ProceeTableWidget = new QTableWidget();
+				QPushButton* Button_openProcess = new QPushButton("打开进程");
+				QPushButton* Button_cancel = new QPushButton("取消");
+				connect(Button_cancel, &QPushButton::clicked,
+					[&]()
+					{
+						if (ui->tabWidget->indexOf(ProcessWidget) != -1)
+						{
+							ProcessWidget->deleteLater();
+						}
+					});
+				QPushButton* attachProcess = new QPushButton("附加进程");
+
+				layout->addWidget(ProceeTableWidget, 1);
+				layout->addWidget(Button_openProcess, 1);
+				layout->addWidget(Button_cancel, 1);
+				layout->addWidget(attachProcess, 1);
+
+
+
+				//这三个用于在进程窗口里添加新的大小
+				QWidget* application = new QWidget();
+				QWidget* process = new QWidget();
+				QWidget* Windows = new QWidget();
+
+
+				//在外层的TableWidget里创建一个进程列表的Widget
+
+				ui->tabWidget->addTab(ProcessWidget, "进程列表 ");
+				ui->tabWidget->setCurrentWidget(ProcessWidget);
+
+				/*QStandardItemModel* model = new QStandardItemModel(0, 4, this);
+				QStringList headers;
+				headers << "应用" << "进程" << "窗口";
+				model->setHorizontalHeaderLabels(headers);*/
+				//newTableView->setModel(model);
+
+				//ProcessWidget->setModel(model);
+
+			}
+		}
+
+	);
+
+}
+
 
 
 
@@ -256,29 +324,15 @@ void CheatEngine_With_Qt::ValueInput2_enable(bool isenable)
 	ui->label_2->setEnabled(isenable);
 }
 
+bool CheatEngine_With_Qt::openprocessPrologue()
+{
+	//if(porcee)
+	return false;
+}
+
 
 void CheatEngine_With_Qt::initCheckBoxVisibility(bool enable)
 {
-	//// 1. 获取目标布局指针（假设布局对象名为verticalLayout）
-	//QLayout* targetLayout = ui->FindMethodSelect;
-
-	//// 2. 遍历布局中的全部子项
-	//for (int i = 0; i < targetLayout->count(); ++i)
-	//{
-	//	QLayoutItem* item = targetLayout->itemAt(i);
-	//	if (item->widget())
-	//	{
-	//		// 3. 判断是否为QCheckBox类型
-	//		QCheckBox* checkbox = qobject_cast<QCheckBox*>(item->widget());
-	//		if (checkbox)
-	//		{
-	//			// 4. 设置为不可见
-	//			checkbox->setVisible(enable);
-	//			checkbox->setEnabled(enable);
-	//		}
-	//	}
-	//}
-
 	SetSplitterVisibility(ui->splitter_Find_seletct_checkBoxs, false);
 	EnableCheckBox(ui->checkBox_Not, true);
 
@@ -311,10 +365,6 @@ void CheatEngine_With_Qt::SetSplitterVisibility(QSplitter* splitter, bool enable
 		child->setEnabled(enable);
 	}
 }
-
-
-
-
 
 
 

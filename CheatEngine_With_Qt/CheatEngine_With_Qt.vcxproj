@@ -22,7 +22,6 @@
     <ConfigurationType>Application</ConfigurationType>
     <PlatformToolset>v143</PlatformToolset>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
@@ -65,6 +64,10 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile />
+    <ClCompile>
+      <CallingConvention>StdCall</CallingConvention>
+      <PreprocessorDefinitions>_AMD64_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'" Label="Configuration">
     <ClCompile>
@@ -97,29 +100,30 @@
     <QtRcc Include="CheatEngine_With_Qt.qrc" />
     <QtUic Include="CheatEngine_With_Qt.ui" />
     <QtMoc Include="CheatEngine_With_Qt.h" />
-    <ClCompile Include="Cheat Engine Core\NewKernelHandler.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-    </ClCompile>
-    <ClCompile Include="Cheat Engine Core\WindowsDebugger.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-    </ClCompile>
     <ClCompile Include="CheatEngine_With_Qt.cpp" />
+    <ClCompile Include="Cheat_Engine_Core\dbk32\dbk32functions.cpp" />
+    <ClCompile Include="Cheat_Engine_Core\dbk32\vmxfunction.cpp" />
+    <ClCompile Include="Cheat_Engine_Core\Filehandler.cpp" />
+    <ClCompile Include="Cheat_Engine_Core\frmEditHistoryUnit.cpp" />
+    <ClCompile Include="Cheat_Engine_Core\NewKernelHandler.cpp" />
+    <ClCompile Include="Cheat_Engine_Core\WindowsDebugger.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Cheat Engine Core\dbk32\dbk32functions.h" />
-    <ClInclude Include="Cheat Engine Core\dbk32\vmxfunction.h" />
-    <ClInclude Include="Cheat Engine Core\debug.h" />
-    <ClInclude Include="Cheat Engine Core\DebuggerInterface.h" />
-    <ClInclude Include="Cheat Engine Core\Filehandler.h" />
-    <ClInclude Include="Cheat Engine Core\frmEditHistoryUnit.h" />
-    <ClInclude Include="Cheat Engine Core\Globals.h" />
-    <ClInclude Include="Cheat Engine Core\NewKernelHandler.h" />
-    <ClInclude Include="Cheat Engine Core\plugin.h">
+    <ClInclude Include="Cheat_Engine_Core\dbk32\dbk32functions.h" />
+    <ClInclude Include="Cheat_Engine_Core\dbk32\vmxfunction.h" />
+    <ClInclude Include="Cheat_Engine_Core\debug.h" />
+    <ClInclude Include="Cheat_Engine_Core\DebuggerInterface.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </ClInclude>
-    <ClInclude Include="Cheat Engine Core\Winapi.hpp" />
-    <ClInclude Include="Cheat Engine Core\WindowsDebugger.hpp">
+    <ClInclude Include="Cheat_Engine_Core\Filehandler.h" />
+    <ClInclude Include="Cheat_Engine_Core\frmEditHistoryUnit.h" />
+    <ClInclude Include="Cheat_Engine_Core\Globals.h" />
+    <ClInclude Include="Cheat_Engine_Core\NewKernelHandler.h" />
+    <ClInclude Include="Cheat_Engine_Core\Winapi.hpp" />
+    <ClInclude Include="Cheat_Engine_Core\WindowsDebugger.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </ClInclude>
   </ItemGroup>

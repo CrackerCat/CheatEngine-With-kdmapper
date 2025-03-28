@@ -245,6 +245,12 @@ typedef struct __inputpath
 
 int main()
 {
+	const std::string  r;
+	if (GetCurrentThreadId() != NULL && MessageBoxA(nullptr, r.c_str(), "警告", MB_YESNO) != IDYES) /*GetCurrentThreadId() == MainThreadID*/
+	{
+		return FALSE;
+	}
+
 	HANDLE hDevice = CreateFile(
 		"\\\\.\\Nul",          // 设备符号链接 
 		GENERIC_READ | GENERIC_WRITE,// 读写权限 
@@ -286,3 +292,4 @@ int main()
 	system("pause");
 	return 0;
 }
+

@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>685</width>
-    <height>707</height>
+    <width>617</width>
+    <height>714</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -24,24 +24,6 @@
   </property>
   <widget class="QWidget" name="centralWidget">
    <layout class="QFormLayout" name="formLayout">
-    <item row="0" column="1">
-     <widget class="QTabWidget" name="tabWidget">
-      <property name="sizePolicy">
-       <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-        <horstretch>0</horstretch>
-        <verstretch>10</verstretch>
-       </sizepolicy>
-      </property>
-      <property name="currentIndex">
-       <number>0</number>
-      </property>
-      <widget class="QWidget" name="tab">
-       <attribute name="title">
-        <string>查找1</string>
-       </attribute>
-      </widget>
-     </widget>
-    </item>
     <item row="0" column="0">
      <layout class="QVBoxLayout" name="verticalLayout_3">
       <item>
@@ -220,15 +202,15 @@
          <property name="geometry">
           <rect>
            <x>130</x>
-           <y>90</y>
-           <width>170</width>
+           <y>100</y>
+           <width>172</width>
            <height>161</height>
           </rect>
          </property>
          <property name="minimumSize">
           <size>
-           <width>0</width>
-           <height>0</height>
+           <width>172</width>
+           <height>161</height>
           </size>
          </property>
          <property name="maximumSize">
@@ -335,7 +317,7 @@
           </widget>
           <widget class="QLineEdit" name="lineEdit_3">
            <property name="sizePolicy">
-            <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+            <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
              <horstretch>0</horstretch>
              <verstretch>0</verstretch>
             </sizepolicy>
@@ -366,6 +348,9 @@
             </property>
             <property name="text">
              <string>对齐大小</string>
+            </property>
+            <property name="checked">
+             <bool>true</bool>
             </property>
            </widget>
            <widget class="QRadioButton" name="radioButton_2">
@@ -814,6 +799,24 @@
        </spacer>
       </item>
      </layout>
+    </item>
+    <item row="0" column="1">
+     <widget class="QTabWidget" name="tabWidget">
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+        <horstretch>0</horstretch>
+        <verstretch>10</verstretch>
+       </sizepolicy>
+      </property>
+      <property name="currentIndex">
+       <number>0</number>
+      </property>
+      <widget class="QWidget" name="tab">
+       <attribute name="title">
+        <string>查找1</string>
+       </attribute>
+      </widget>
+     </widget>
     </item>
     <item row="2" column="0" colspan="2">
      <layout class="QVBoxLayout" name="verticalLayout">
