@@ -100,4 +100,9 @@
       <Filter>Header Files\CheatEngine_include</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <QtUic Include="Add_Or_Change_Address_Widget.ui">
+      <Filter>Form Files</Filter>
+    </QtUic>
+  </ItemGroup>
 </Project>

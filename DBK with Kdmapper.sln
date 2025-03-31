@@ -9,6 +9,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CheatEngine_With_Qt", "Chea
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DBK_Tiny", "DBK_Tiny\DBK_Tiny.vcxproj", "{B247177F-302E-41D2-B52F-A0CCC5C46EFC}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "kdmapper", "D:\C++Project\PUBG项目\kdmapper-master\kdmapper\kdmapper.vcxproj", "{518E0636-BA8F-459D-ACAC-81BD33475E3E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|ARM64 = Debug|ARM64
@@ -48,6 +50,14 @@ Global
 		{B247177F-302E-41D2-B52F-A0CCC5C46EFC}.Release|x64.ActiveCfg = Release|x64
 		{B247177F-302E-41D2-B52F-A0CCC5C46EFC}.Release|x64.Build.0 = Release|x64
 		{B247177F-302E-41D2-B52F-A0CCC5C46EFC}.Release|x64.Deploy.0 = Release|x64
+		{518E0636-BA8F-459D-ACAC-81BD33475E3E}.Debug|ARM64.ActiveCfg = Debug|x64
+		{518E0636-BA8F-459D-ACAC-81BD33475E3E}.Debug|ARM64.Build.0 = Debug|x64
+		{518E0636-BA8F-459D-ACAC-81BD33475E3E}.Debug|x64.ActiveCfg = Debug|x64
+		{518E0636-BA8F-459D-ACAC-81BD33475E3E}.Debug|x64.Build.0 = Debug|x64
+		{518E0636-BA8F-459D-ACAC-81BD33475E3E}.Release|ARM64.ActiveCfg = Release|x64
+		{518E0636-BA8F-459D-ACAC-81BD33475E3E}.Release|ARM64.Build.0 = Release|x64
+		{518E0636-BA8F-459D-ACAC-81BD33475E3E}.Release|x64.ActiveCfg = Release|x64
+		{518E0636-BA8F-459D-ACAC-81BD33475E3E}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

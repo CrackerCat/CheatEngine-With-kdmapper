@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>617</width>
-    <height>714</height>
+    <width>742</width>
+    <height>720</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -457,7 +457,7 @@
          <property name="orientation">
           <enum>Qt::Orientation::Horizontal</enum>
          </property>
-         <widget class="QPushButton" name="pushButton_5_add_TableWidget">
+         <widget class="QPushButton" name="pushButton_5_add_TabWidget">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
             <horstretch>0</horstretch>
@@ -480,7 +480,7 @@
            <string>添加查找表</string>
           </property>
          </widget>
-         <widget class="QPushButton" name="pushButton_5_remove_TableWidget">
+         <widget class="QPushButton" name="pushButton_5_remove_TabWidget">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
             <horstretch>0</horstretch>
@@ -800,24 +800,6 @@
       </item>
      </layout>
     </item>
-    <item row="0" column="1">
-     <widget class="QTabWidget" name="tabWidget">
-      <property name="sizePolicy">
-       <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-        <horstretch>0</horstretch>
-        <verstretch>10</verstretch>
-       </sizepolicy>
-      </property>
-      <property name="currentIndex">
-       <number>0</number>
-      </property>
-      <widget class="QWidget" name="tab">
-       <attribute name="title">
-        <string>查找1</string>
-       </attribute>
-      </widget>
-     </widget>
-    </item>
     <item row="2" column="0" colspan="2">
      <layout class="QVBoxLayout" name="verticalLayout">
       <item>
@@ -836,7 +818,7 @@
           <string>删除列表中所有地址</string>
          </property>
         </widget>
-        <widget class="QPushButton" name="pushButton_4">
+        <widget class="QPushButton" name="pushButton_4_add_address">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
            <horstretch>0</horstretch>
@@ -850,16 +832,34 @@
        </widget>
       </item>
       <item>
-       <widget class="QTableView" name="tableView_address">
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
+       <widget class="QTableWidget" name="tableWidget_addressList">
+        <property name="rowCount">
+         <number>0</number>
+        </property>
+        <property name="columnCount">
+         <number>0</number>
         </property>
        </widget>
       </item>
      </layout>
+    </item>
+    <item row="0" column="1">
+     <widget class="QTabWidget" name="tabWidget">
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+        <horstretch>0</horstretch>
+        <verstretch>10</verstretch>
+       </sizepolicy>
+      </property>
+      <property name="currentIndex">
+       <number>0</number>
+      </property>
+      <widget class="QWidget" name="tab">
+       <attribute name="title">
+        <string>查找1</string>
+       </attribute>
+      </widget>
+     </widget>
     </item>
    </layout>
   </widget>

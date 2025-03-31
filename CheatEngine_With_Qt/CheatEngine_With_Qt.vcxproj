@@ -98,6 +98,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <QtRcc Include="CheatEngine_With_Qt.qrc" />
+    <QtUic Include="Add_Or_Change_Address_Widget.ui" />
     <QtUic Include="CheatEngine_With_Qt.ui" />
     <QtMoc Include="CheatEngine_With_Qt.h" />
     <ClCompile Include="CheatEngine_With_Qt.cpp" />
