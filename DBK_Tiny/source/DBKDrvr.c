@@ -55,7 +55,7 @@ NTSTATUS DriverEntry(IN PDRIVER_OBJECT DriverObject,
 	//__debugbreak();
 	if (RegistryPath == 0x1234)
 		manual_load = TRUE;
-	else if(RegistryPath)
+	else if(RegistryPath==NULL)
 		loadedbydbvm = TRUE;
 
 
