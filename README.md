@@ -31,7 +31,7 @@ Chinese commemt:
 
 4、移植kdmapper项目在应用层实现的内核模块遍历，和内核特征码匹配到内核层，在内核层实现内核模块遍历，特征匹配
 
-5、正常实现DBVM所有功能，初始化，调试器，内存扫描，实现真正的VT级别调试读写
+5、正常实现DBVM所有功能，调试器，内存扫描，VT调试读写
 
 
 
@@ -68,6 +68,20 @@ dbk无签名加载机制的实现
 
 
 项目调试心得
+1、调试环境搭建，采取网络调试模式，其效率高于串口调试，虚拟机开启调试命令为
+bcdedit /debug on
+bcdedit /dbgsettings NET HOSTIP:<物理机ip地址> PORT:55555  KEY:zuoyuan.own.safe.key
+
+后续在Visual Studio中配置调试设备
+
+
+
+2、一般我们有两种调试模式，一种为kdmapper加载的方式，一种为服务加载的方式，服务加载的方式是有符号和源码路径的，调试起来清晰可见，而kdmapper映射
+的驱动，就需要我们手动load符号， 一般方法为，首先关闭kdmapper 的加载驱动时抹除PE文件头，在Kdmapper加载时会返回驱动加载地址的imagebase，记录这个
+地址然后在windbg使用 .reload /i DBK_Tiny.sys=<image_base>方式对某个地址手动加载符号和源码路径，这种方式可以kdmapper映射的无模块驱动排除未知错误，
+非常实用
+
+
 
 
 项目开发环境搭建心得
