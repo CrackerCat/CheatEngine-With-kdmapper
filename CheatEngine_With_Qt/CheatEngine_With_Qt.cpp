@@ -16,6 +16,7 @@ CheatEngine_With_Qt::CheatEngine_With_Qt(QWidget* parent)
 	initFindWidget(ui->tabWidget->widget(0));
 	initAddressTable();
 	initOpenPorcessButton();
+	initAdd_Or_Change_Address_Dialog();
 
 
 	//ui->tabWidget->layout()
@@ -206,6 +207,8 @@ void CheatEngine_With_Qt::initAddressTable()
 	ui->tableWidget_addressList->horizontalHeader()->setSectionResizeMode(3, QHeaderView::ResizeToContents); // 数据类型列自适应 
 	ui->tableWidget_addressList->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Stretch); // 数值列拉伸 
 
+
+	//Test insert Data
 	ui->tableWidget_addressList->setRowCount(5);
 	for (int row = 0;row < 5;row++)
 	{
@@ -224,9 +227,9 @@ void CheatEngine_With_Qt::initAddressTable()
 		addrItem->setTextAlignment(Qt::AlignCenter);
 		ui->tableWidget_addressList->setItem(row, 2, addrItem);
 
-		QComboBox* comboBox = new QComboBox();
-		comboBox->addItems({ "4字节","8字节","单浮点","双浮点","字符串","8位数组",""});
-		ui->tableWidget_addressList->setCellWidget(row, 3, comboBox);
+		QTableWidgetItem* DataType = new QTableWidgetItem("4字节");
+		DataType->setTextAlignment(Qt::AlignCenter);
+		ui->tableWidget_addressList->setItem(row, 3, DataType);
 
 		QTableWidgetItem* valueItem = new QTableWidgetItem();
 		valueItem->setText(QString::number(25.3 + row, 'f', 2)); // 保留两位小数 
@@ -338,13 +341,13 @@ void CheatEngine_With_Qt::initOpenPorcessButton()
 
 }
 
-void CheatEngine_With_Qt::initAdd_Or_Change_Address_Widget()
+void CheatEngine_With_Qt::initAdd_Or_Change_Address_Dialog()
 {
 	connect(ui->pushButton_4_add_address, &QPushButton::clicked, [&]()
 		{
-			Add_Or_Change_Address_Widget = new QWidget();
-			ui->tabWidget->addTab(Add_Or_Change_Address_Widget, "添加地址");
-			QVBoxLayout* addresslayout = new QVBoxLayout(Add_Or_Change_Address_Widget);
+			Add_Or_Change_Address_Dialog* Add_or_change_adress = new Add_Or_Change_Address_Dialog(this);
+			Add_or_change_adress->setAttribute(Qt::WA_DeleteOnClose);
+			Add_or_change_adress->show();
 		}
 	);
 }

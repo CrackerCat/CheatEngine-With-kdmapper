@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>742</width>
-    <height>720</height>
+    <width>531</width>
+    <height>629</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -216,7 +216,7 @@
          <property name="maximumSize">
           <size>
            <width>172</width>
-           <height>161</height>
+           <height>167</height>
           </size>
          </property>
          <property name="orientation">
@@ -373,7 +373,7 @@
            <x>0</x>
            <y>0</y>
            <width>300</width>
-           <height>21</height>
+           <height>20</height>
           </rect>
          </property>
          <property name="orientation">
@@ -515,8 +515,8 @@
          </property>
          <property name="maximumSize">
           <size>
-           <width>123</width>
-           <height>71</height>
+           <width>122</width>
+           <height>72</height>
           </size>
          </property>
          <property name="orientation">
@@ -635,8 +635,8 @@
          </property>
          <property name="maximumSize">
           <size>
-           <width>100</width>
-           <height>169</height>
+           <width>101</width>
+           <height>175</height>
           </size>
          </property>
          <property name="orientation">

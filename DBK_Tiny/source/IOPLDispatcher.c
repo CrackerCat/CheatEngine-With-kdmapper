@@ -679,7 +679,7 @@ NTSTATUS DispatchIoctl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 				pinp=Irp->AssociatedIrp.SystemBuffer;
 
 				//DbgPrint("IOCTL_CE_GETPHYSICALADDRESS. ProcessID(%p)=%x BaseAddress(%p)=%x\n",&pinp->ProcessID, pinp->ProcessID, &pinp->BaseAddress, pinp->BaseAddress);
-
+				//__debugbreak();
 				__try
 				{
 					//switch to the selected process
@@ -714,8 +714,6 @@ NTSTATUS DispatchIoctl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
                     RtlCopyMemory(Irp->AssociatedIrp.SystemBuffer,&physical.QuadPart,8);
 
 				}
-				
-				
 				break;
 			}
 
@@ -892,6 +890,7 @@ NTSTATUS DispatchIoctl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 				} *pinp;
 				pinp=Irp->AssociatedIrp.SystemBuffer;
 				DbgPrint("IOCTL_CE_LAUNCHDBVM\n");
+				//__debugbreak();
 				initializeDBVM((PCWSTR)(UINT_PTR)pinp->dbvmimgpath);
 
 				if (pinp->cpuid == 0xffffffff) {
@@ -999,7 +998,7 @@ NTSTATUS DispatchIoctl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 			{
 				NTSTATUS r = STATUS_SUCCESS;
 				DbgPrint("IOCTL_CE_STARTPROCESSWATCH\n");
-
+				
 				ProcessWatcherOpensHandles = *(char *)Irp->AssociatedIrp.SystemBuffer != 0;
 
 				if (CreateProcessNotifyRoutineEnabled && WatcherProcess)
@@ -1023,11 +1022,70 @@ NTSTATUS DispatchIoctl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 				{
 					
 					DbgPrint("calling PsSetCreateProcessNotifyRoutine\n");
-
-					
 #if (NTDDI_VERSION >= NTDDI_VISTASP1) 
+					
+					//PVOID addr = GetKernelModuleAddress("ntoskrnl.exe");
+					//ULONG section_Size = { 0 };
+					//if (addr != NULL)
+					//	addr = FindSection(".text", addr, &section_Size);
+					//if (addr != NULL)
+					//	addr = FindPattern(addr, section_Size, (BYTE*)"\x48\x89\x5C\x24\x08\x48\x89\x6C\x24\x10\x48\x89\x74\x24\x18\x57\x48\x83\xEC\x20\x8B\xFA\x48\x8B\xF1", "xxxxxxxxxxxxxxxxxxxxxxxxx");
+					////MmVerifyCallbackFunctionCheckFlags 48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 48 83 EC 20 8B FA 48 8B F1
+					//
+					//BYTE origin[8] = {0};
+					//memcpy(origin, addr, 8);
+
+					//BYTE tmp[8] = {0x48,0xC7,0xC0,0x01,0x00,0x00,0x00,0xC3};
+					////48 C7 C0 01000000  mov rax, 1 
+					////C3                 ret 
+
+					//PMDL pMdl = NULL;
+					//ULONG OldProtect = 0, NewProtect = 0;
+					//MEMORY_BASIC_INFORMATION MemoryInfo;
+
+					//// 1. 查询并保存原始属性
+					//NTSTATUS status = ZwQueryVirtualMemory(NtCurrentProcess(), addr, MemoryBasicInformation, &MemoryInfo, sizeof(MemoryInfo), NULL);
+					//__debugbreak();
+					//if (!NT_SUCCESS(status)) return status;
+					//OldProtect = MemoryInfo.Protect;
+					//// 2. 创建并锁定MDL
+					//pMdl = IoAllocateMdl(addr, 8, FALSE, FALSE, NULL);
+					//if (!pMdl) return STATUS_INSUFFICIENT_RESOURCES;
+
+					//__try {
+					//	MmProbeAndLockPages(pMdl, KernelMode, IoReadAccess);
+					//}
+					//__except (EXCEPTION_EXECUTE_HANDLER) {
+					//	IoFreeMdl(pMdl);
+					//	return GetExceptionCode();
+					//}
+
+					//PVOID MappedAddr = MmGetSystemAddressForMdlSafe(pMdl, NormalPagePriority);
+
+					//// 3. 修改为可读写
+					//MmProtectMdlSystemAddress(pMdl, PAGE_READWRITE);
+
+
+					//for (int i = 0;i < 8;i++)
+					//{
+					//	((BYTE*)addr)[i] = tmp[i];
+					//}
+
 					r=PsSetCreateProcessNotifyRoutineEx(CreateProcessNotifyRoutineEx, FALSE);
 					CreateProcessNotifyRoutineEnabled = r== STATUS_SUCCESS;
+
+
+					//for (int i = 0;i < 8;i++)
+					//{
+					//	((BYTE*)addr)[i] = origin[i];
+					//}
+					//// 5. 恢复原始属性
+					//MmProtectMdlSystemAddress(pMdl, OldProtect);
+
+					//// 6. 释放资源
+					//MmUnlockPages(pMdl);
+					//IoFreeMdl(pMdl);
+
 #else
 				    CreateProcessNotifyRoutineEnabled = (PsSetCreateProcessNotifyRoutine(CreateProcessNotifyRoutine,FALSE)==STATUS_SUCCESS);					
 #endif

@@ -67,6 +67,9 @@
     <ClCompile Include="Cheat_Engine_Core\WindowsDebugger.cpp">
       <Filter>Source Files\CheatEngine_Source</Filter>
     </ClCompile>
+    <ClCompile Include="Add_Or_Change_Address_Dialog.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Cheat_Engine_Core\dbk32\dbk32functions.h">
@@ -101,8 +104,13 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <QtUic Include="Add_Or_Change_Address_Widget.ui">
+    <QtUic Include="Add_Or_Change_Address_Dialog.ui">
       <Filter>Form Files</Filter>
     </QtUic>
+  </ItemGroup>
+  <ItemGroup>
+    <QtMoc Include="Add_Or_Change_Address_Dialog.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
   </ItemGroup>
 </Project>

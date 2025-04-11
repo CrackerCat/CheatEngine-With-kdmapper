@@ -98,9 +98,10 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <QtRcc Include="CheatEngine_With_Qt.qrc" />
-    <QtUic Include="Add_Or_Change_Address_Widget.ui" />
+    <QtUic Include="Add_Or_Change_Address_Dialog.ui" />
     <QtUic Include="CheatEngine_With_Qt.ui" />
     <QtMoc Include="CheatEngine_With_Qt.h" />
+    <ClCompile Include="Add_Or_Change_Address_Dialog.cpp" />
     <ClCompile Include="CheatEngine_With_Qt.cpp" />
     <ClCompile Include="Cheat_Engine_Core\dbk32\dbk32functions.cpp" />
     <ClCompile Include="Cheat_Engine_Core\dbk32\vmxfunction.cpp" />
@@ -113,6 +114,7 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <QtMoc Include="Add_Or_Change_Address_Dialog.h" />
     <ClInclude Include="Cheat_Engine_Core\dbk32\dbk32functions.h" />
     <ClInclude Include="Cheat_Engine_Core\dbk32\vmxfunction.h" />
     <ClInclude Include="Cheat_Engine_Core\debug.h" />

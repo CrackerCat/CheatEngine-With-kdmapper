@@ -80,10 +80,6 @@ BOOL NoExceptions_Enter()
 
 		cpustate[cpunr].entryIRQL = old;
 
-		
-
-		
-
 		if (cpustate[cpunr].OriginalIDT.wLimit == 0)
 		{
 			//initialize this
@@ -167,7 +163,6 @@ int NoExceptions_CopyMemory(PVOID Destination, PVOID Source, int size)
 		if (EnteredNoExceptions == FALSE)
 			return 0;
 	}
-	
 	r = ExceptionlessCopy_Internal(Destination, Source, size);
 
 	

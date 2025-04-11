@@ -6,7 +6,45 @@
 #include "IOPLDispatcher.h"
 #include "DBKDrvr.h"
 
+NTSTATUS ModifyAndRestoreProtection(PVOID Address, SIZE_T Size) {
+	PMDL pMdl = NULL;
+	ULONG OldProtect = 0, NewProtect = 0;
+	MEMORY_BASIC_INFORMATION MemoryInfo;
 
+	// 1. 查询并保存原始属性
+	NTSTATUS status = ZwQueryVirtualMemory(NtCurrentProcess(), Address, MemoryBasicInformation, &MemoryInfo, sizeof(MemoryInfo), NULL);
+	if (!NT_SUCCESS(status)) return status;
+	OldProtect = MemoryInfo.Protect;
+
+	// 2. 创建并锁定MDL
+	pMdl = IoAllocateMdl(Address, Size, FALSE, FALSE, NULL);
+	if (!pMdl) return STATUS_INSUFFICIENT_RESOURCES;
+
+	__try {
+		MmProbeAndLockPages(pMdl, KernelMode, IoReadAccess);
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER) {
+		IoFreeMdl(pMdl);
+		return GetExceptionCode();
+	}
+
+	PVOID MappedAddr = MmGetSystemAddressForMdlSafe(pMdl, NormalPagePriority);
+
+	// 3. 修改为可读写
+	MmProtectMdlSystemAddress(pMdl, PAGE_READWRITE);
+
+	// 4. 执行内存操作（如写入数据）
+	// *(ULONG*)MappedAddr = NewValue;
+
+	// 5. 恢复原始属性
+	MmProtectMdlSystemAddress(pMdl, OldProtect);
+
+	// 6. 释放资源
+	MmUnlockPages(pMdl);
+	IoFreeMdl(pMdl);
+
+	return STATUS_SUCCESS;
+}
 
 PDEVICE_OBJECT GetDeviceObjectByName(PWCH DriverName)
 {
@@ -27,7 +65,7 @@ PDEVICE_OBJECT GetDeviceObjectByName(PWCH DriverName)
 	return pDevice;
 }
 
-BOOLEAN MyDeviceIoControl(
+BOOL MyDeviceIoControl(
 	_In_ struct _FILE_OBJECT* FileObject,
 	_In_ BOOLEAN Wait,
 	_In_opt_ PVOID InputBuffer,
@@ -40,9 +78,10 @@ BOOLEAN MyDeviceIoControl(
 )
 {
 	//__debugbreak();
+	BOOL r;
 	if (InputBuffer != NULL && MmIsAddressValid(InputBuffer) && MmIsAddressValid((PUCHAR)InputBuffer + InputBufferLength - 1))
 	{
-		IRP FakeIRP;
+		IRP FakeIRP = { 0 };
 		PCommInfo buffer = { 0 };
 		buffer = ExAllocatePool(NonPagedPool, sizeof(UINT32) + sizeof(PVOID));
 		memcpy(buffer, InputBuffer, sizeof(UINT32));
@@ -51,20 +90,27 @@ BOOLEAN MyDeviceIoControl(
 			FakeIRP.Flags = buffer->ControlCode;
 
 			//__debugbreak();
-            //__debugbreak();
+			//__debugbreak();
 			buffer->inputBuffer = ExAllocatePool(NonPagedPool, max(InputBufferLength, OutputBufferLength));
 			memcpy(buffer->inputBuffer, ((PCommInfo)InputBuffer)->inputBuffer, InputBufferLength);
 			FakeIRP.AssociatedIrp.SystemBuffer = buffer->inputBuffer;
-			DbgPrintEx(0, 0, "MyDeviceIoControl %I64x\n", buffer->ControlCode);
-			DispatchIoctl(DeviceObject, &FakeIRP);
+			if (buffer->ControlCode != IOCTL_CE_READMEMORY)
+			{
+				DbgPrintEx(0, 0, "MyDeviceIoControl %I64x\n", buffer->ControlCode);
+			}
+				
+			r = DispatchIoctl(DeviceObject, &FakeIRP)== STATUS_SUCCESS;
+
+			if (buffer->ControlCode == IOCTL_CE_GETPHYSICALADDRESS)
+			{
+				//__debugbreak();
+			}
 
 			memcpy(OutputBuffer, buffer->inputBuffer, OutputBufferLength);
 			ExFreePool(buffer->inputBuffer);
 		}
 		ExFreePool(buffer);
-
-
-		return TRUE;
+		return r;
 	}
 }
 
@@ -84,13 +130,13 @@ PVOID GetNtConvertBetweenAuxiliaryCounterAndPerformanceCounter_Addr()
 	PVOID addr = GetKernelModuleAddress("ntoskrnl.exe");
 	ULONG section_Size = { 0 };
 	if (addr != NULL)
-	addr = FindSection("PAGE", addr, &section_Size);
+		addr = FindSection("PAGE", addr, &section_Size);
 	//__debugbreak();
-	if(addr !=NULL)
+	if (addr != NULL)
 		addr = FindPattern(addr, section_Size, (BYTE*)"\x48\x8b\xc4\x48\x89\x58\x08\x48\x89\x70\x10\x48\x89\x78\x18\x41\x56\x48\x83\xec\x40\x49\x8b\xd9\x49\x8b\xf8\x40\x8a\xf1\x48\x83\x60\xe0\x00\x48\x83\x60\xd8\x00\x65\x48\x8b\x04\x25\x88\x01\x00", "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
 	//__debugbreak();
 
-	
+
 	return addr;
 }
 
@@ -103,12 +149,12 @@ uintptr_t GetKernalMutableFunctionAddr()
 {
 	//__debugbreak();
 	uintptr_t return_addr = GetNtConvertBetweenAuxiliaryCounterAndPerformanceCounter_Addr();
-	
+
 	if (return_addr != NULL)
 	{
 		//__debugbreak();
 		return_addr = return_addr + 0xB4 + 0x3;
-		UINT32 offset = ((BYTE*)return_addr)[3] << 24|((BYTE*)return_addr)[2] << 16 | ((BYTE*)return_addr)[1] << 8 | ((BYTE*)return_addr)[0];
+		UINT32 offset = ((BYTE*)return_addr)[3] << 24 | ((BYTE*)return_addr)[2] << 16 | ((BYTE*)return_addr)[1] << 8 | ((BYTE*)return_addr)[0];
 		return_addr = return_addr + 0x4 + offset;
 	}
 	//*(BYTE*)return_addr = 0xCC; //尝试在ntoskrnl的.data可写段添加一个断点，用于测试
@@ -119,7 +165,7 @@ BOOL Hook_CE_DeviceIoControl_With_noExportKenal()
 {
 	uintptr_t Change_addr = GetKernalMutableFunctionAddr();
 	if (Change_addr != NULL)
-	*(PULONG64)Change_addr = MyDeviceIoControl;
+		*(PULONG64)Change_addr = MyDeviceIoControl;
 	else
 	{
 		DbgPrintEx(0, 0, "fail find Mutable addr");

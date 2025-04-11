@@ -49,12 +49,14 @@ NTSTATUS DriverEntry(IN PDRIVER_OBJECT DriverObject,
 
 #ifdef DEBUG
 	manual_load = TRUE;
-#endif // DEBUG
+#endif //DEBUG
 
 	
-	//__debugbreak();
 	if (RegistryPath == 0x1234)
+	{
 		manual_load = TRUE;
+	}
+		
 	else if(RegistryPath==NULL)
 		loadedbydbvm = TRUE;
 
@@ -72,7 +74,7 @@ NTSTATUS DriverEntry(IN PDRIVER_OBJECT DriverObject,
 		DriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] = (PDRIVER_DISPATCH)DispatchIoctlDBVM;
 	 if (manual_load)
 	{
-		PVOID adrr = GetKernalMutableFunctionAddr();
+		//Hook_CE_DeviceIoControl_With_noExportKenal();
 		Hook_Setting_Device_FastIoDeviceControl();
 	}
 

@@ -18,7 +18,7 @@ NTSTATUS NTAPI ZwQuerySystemInformation(
 	_Out_opt_ PULONG                   ReturnLength
 );
 
-BOOLEAN MyDeviceIoControl(
+BOOL MyDeviceIoControl(
 	_In_ struct _FILE_OBJECT* FileObject,
 	_In_ BOOLEAN Wait,
 	_In_opt_ PVOID InputBuffer,
