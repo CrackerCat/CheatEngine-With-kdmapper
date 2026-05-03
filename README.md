@@ -145,10 +145,9 @@ Visual Studio、Qt6
 C++代码编译模式MDd、和MD (注意不要使用 MTd、MT的编译模式，会和Qt库冲突，导致异常崩溃)
 
 
-<img width="810" height="1001" alt="image" src="https://github.com/user-attachments/assets/336c3a27-58f9-4cf1-8548-50292c33aaf5" />
-<img width="802" height="996" alt="image" src="https://github.com/user-attachments/assets/5ea6c57e-bade-4a06-9d44-207f0be08690" />
 
 
+<img width="851" height="876" alt="image" src="https://github.com/user-attachments/assets/c6c38e76-0bef-4efe-a925-7262ba8acb13" />
 
 
 
