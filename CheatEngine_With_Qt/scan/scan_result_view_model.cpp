@@ -52,49 +52,48 @@ int ScanResultViewModel::columnCount(const QModelIndex& parent) const
     return 4;
 }
 
-QVariant ScanResultViewModel::data(const QModelIndex& index, int role) const
-{
-    if (!index.isValid() || !m_repo)
-        return {};
+
+QVariant ScanResultViewModel::data(const QModelIndex& index, int role) const {
+    if (!index.isValid() || !m_repo) return {};
 
     int row = index.row();
-    if (row < 0 || row >= rowCount())
-        return {};
-
     const ScanResult* item = m_repo->resultAt(row);
-    if (!item)
-        return {};
+    if (!item) return {};
 
-    // 地址列
+    uint64_t addr = item->address;
+
+    // 1. 处理地址列及基址颜色 (Column 0)
     if (index.column() == 0) {
-        if (role == Qt::DisplayRole) {
-            std::string display;
-            bool isBase = false;
-            ProcessManager::instance().resolveAddress(item->address, display, isBase);
-            return QString::fromStdString(display);
-        }
-        if (role == Qt::ForegroundRole) {
-            std::string display;
-            bool isBase = false;
-            ProcessManager::instance().resolveAddress(item->address, display, isBase);
-            if (isBase)
-                return QBrush(QColor(0, 128, 0)); // 绿色标识模块基址
-        }
+        std::string display;
+        bool isBase = false;
+        ProcessManager::instance().resolveAddress(addr, display, isBase);
+
+        if (role == Qt::DisplayRole) return QString::fromStdString(display);
+        if (role == Qt::ForegroundRole && isBase) return QBrush(QColor(0, 128, 0));
         return {};
     }
 
-    // 数值 / 字符串 / 字节数组列
+    // 2. 处理文本显示 (DisplayRole) - 懒加载核心
     if (role == Qt::DisplayRole) {
-        return formatCell(*item, index.column());
+        // 调用 Repository 封装好的获取逻辑，ViewModel 不关心数据是来自内存还是磁盘
+        return QString::fromStdString(m_repo->getDisplayValue(addr, index.column(), m_displayType));
     }
 
-    // 第1列（Value）变化时红色标记
-    if (role == Qt::ForegroundRole && index.column() == 1 && item->changed) {
-        return QBrush(Qt::red);
+    // 3. 处理变红逻辑 (ForegroundRole)
+    if (role == Qt::ForegroundRole && index.column() == 1) {
+        // 如果当前值与上次扫描值不一致，则显示红色
+        // 这里的对比同样是懒加载的：实时读内存 vs 读快照文件
+        std::string curVal = m_repo->getDisplayValue(addr, 1, m_displayType);
+        std::string prevVal = m_repo->getDisplayValue(addr, 2, m_displayType);
+
+        if (curVal != prevVal && prevVal != "---") {
+            return QBrush(Qt::red);
+        }
     }
 
     return {};
 }
+
 
 QVariant ScanResultViewModel::headerData(int section, Qt::Orientation orientation, int role) const
 {
@@ -107,28 +106,6 @@ QVariant ScanResultViewModel::headerData(int section, Qt::Orientation orientatio
     case 3: return QStringLiteral("First");
     default: return {};
     }
-}
-
-QString ScanResultViewModel::formatCell(const ScanResult& item, int column) const
-{
-    // 字符串 / 字节数组类型：直接从当前内存读取显示（即使对于 Previous / First 列）
-    // 注意：这与 CE 的行为可能不完全一致，但保持了原有的显示逻辑
-    if (isStringType(m_displayType) || m_displayType == ScanDataType::ByteArray) {
-        if (m_displayType == ScanDataType::ByteArray)
-            return QString::fromStdString(ScanResultFormatter::formatByteArrayAt(item.address));
-        else
-            return QString::fromStdString(ScanResultFormatter::formatStringAt(item.address, m_displayType));
-    }
-
-    // 数值类型：根据列获取对应的值
-    uint64_t raw = 0;
-    switch (column) {
-    case 1: raw = item.value;      break;   // Current Value
-    case 2: raw = item.lastValue;  break;   // Previous Value
-    case 3: raw = item.firstValue; break;   // First Scan Value
-    default: return {};
-    }
-    return QString::fromStdString(ScanResultFormatter::formatValue(raw, m_displayType));
 }
 
 uint64_t ScanResultViewModel::getAddress(int row) const

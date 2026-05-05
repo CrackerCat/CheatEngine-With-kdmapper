@@ -104,6 +104,9 @@
     <ClCompile Include="scan\scan_service.cpp">
       <Filter>new_scan_framework</Filter>
     </ClCompile>
+    <ClCompile Include="Scan_Snapshot_Reader.cpp">
+      <Filter>new_scan_framework</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="process_manager.h">
@@ -195,6 +198,9 @@
     </ClInclude>
     <ClInclude Include="TempPathManager.h">
       <Filter>utils</Filter>
+    </ClInclude>
+    <ClInclude Include="Scan_Snapshot_Reader.h">
+      <Filter>new_scan_framework</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

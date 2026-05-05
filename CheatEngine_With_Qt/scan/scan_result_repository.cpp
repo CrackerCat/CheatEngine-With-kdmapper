@@ -1,68 +1,51 @@
 #include "scan_result_repository.h"
-#include <unordered_map>
+#include "scan_result_formatter.h"
 #include <algorithm>
 
-void ScanResultRepository::replaceAllResults(const std::vector<ScanResult>& newResults)
+void ScanResultRepository::replaceAllResults(std::vector<ScanResult>&& newResults)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
 
-    // 构建旧地址 → 旧结果的映射，用于继承 lastValue / firstValue
-    std::unordered_map<uint64_t, ScanResult> oldMap;
-    for (const auto& old : m_data) {
-        oldMap[old.address] = old;
-    }
+    // 【优化】由于 ScanResult 只剩地址，不再需要复杂的归并继承逻辑
+    // 整个替换过程现在是 O(1) 的移动语义，彻底解决了大结果集下的 UI 卡顿
+    m_data = std::move(newResults);
 
-    m_data = newResults;
-    for (auto& item : m_data) {
-        auto it = oldMap.find(item.address);
-        if (it != oldMap.end()) {
-            item.lastValue = it->second.value;
-            item.firstValue = it->second.firstValue;
-            item.changed = false;
-        }
-        else {
-            item.lastValue = item.value;
-            item.firstValue = item.value;
-            item.changed = false;
-        }
-    }
-
-    // 快照失效
     m_snapshotCache.reset();
     m_snapshotGeneration = 0;
-
     m_generation.fetch_add(1, std::memory_order_release);
 }
 
-void ScanResultRepository::applyIncrementalUpdates(int generation,
-    const std::vector<int>& rows,
-    const std::vector<uint64_t>& newValues,
-    const std::vector<uint8_t>& changedFlags)
+void ScanResultRepository::setSnapshotInfo(const std::string& firstPath,
+    const std::map<uint64_t, size_t>& firstIdx,
+    const std::string& prevPath,
+    const std::map<uint64_t, size_t>& prevIdx)
 {
-    // 版本检查（快速路径）
-    if (generation != m_generation.load(std::memory_order_acquire))
-        return;
-    if (rows.empty())
-        return;
-
     std::lock_guard<std::mutex> lock(m_mutex);
-    // 获取锁后再次验证，防止 replaceAllResults 插队
-    if (generation != m_generation.load(std::memory_order_acquire))
-        return;
-
-    for (size_t i = 0; i < rows.size(); ++i) {
-        int row = rows[i];
-        if (row < 0 || row >= static_cast<int>(m_data.size()))
-            continue;
-
-        auto& item = m_data[row];
-        item.value = newValues[i];
-        item.changed = changedFlags[i];
-    }
-
-    m_snapshotCache.reset();
-    m_snapshotGeneration = 0;
+    m_firstPath = firstPath;
+    m_firstIndex = firstIdx;
+    m_prevPath = prevPath;
+    m_prevIndex = prevIdx;
 }
+
+std::string ScanResultRepository::getDisplayValue(uint64_t addr, int column, ScanDataType type) const
+{
+    // 该方法不需要加锁 m_mutex，因为快照路径和索引在扫描间期是只读的
+    switch (column) {
+    case 1: // Value: 实时读取目标进程内存
+        return ScanResultFormatter::formatValueAt(addr, type); 
+
+    case 2: // Previous: 从上次扫描的磁盘快照读取
+        return ScanResultFormatter::formatValueFromSnapshot(addr, m_prevPath, m_prevIndex, type);
+
+    case 3: // First: 从首次扫描的磁盘快照读取
+        return ScanResultFormatter::formatValueFromSnapshot(addr, m_firstPath, m_firstIndex, type);
+
+    default:
+        return "";
+    }
+}
+
+// ---------------- 以下逻辑保持精简 ----------------
 
 size_t ScanResultRepository::resultCount() const
 {
@@ -73,15 +56,13 @@ size_t ScanResultRepository::resultCount() const
 const ScanResult* ScanResultRepository::resultAt(size_t index) const
 {
     std::lock_guard<std::mutex> lock(m_mutex);
-    if (index >= m_data.size())
-        return nullptr;
-    return &m_data[index];
+    return (index < m_data.size()) ? &m_data[index] : nullptr;
 }
 
 uint64_t ScanResultRepository::addressAtIndex(size_t index) const
 {
-    auto* res = resultAt(index);
-    return res ? res->address : 0;
+    std::lock_guard<std::mutex> lock(m_mutex);
+    return (index < m_data.size()) ? m_data[index].address : 0;
 }
 
 std::shared_ptr<const std::vector<ScanResult>> ScanResultRepository::createSnapshot() const

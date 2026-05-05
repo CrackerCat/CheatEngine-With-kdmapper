@@ -26,13 +26,6 @@ namespace {
 		return val;
 	}
 
-	// 将泛型 T 封包为 64 位原始数据存储
-	template <typename T>
-	inline uint64_t packValue(T val) {
-		uint64_t raw = 0;
-		std::memcpy(&raw, &val, sizeof(T));
-		return raw;
-	}
 }
 
 ScanEngine::ScanEngine() {
@@ -134,6 +127,18 @@ void ScanEngine::dispatchFirstScanForType(const ScanRequest& req, AdaptiveCacheP
 
 
 template <typename T>
+bool ScanEngine::readValueFromSnapshot(std::ifstream& file, uint64_t addr, T& outVal) {
+	auto it = m_snapshotIndex.upper_bound(addr);
+	if (it == m_snapshotIndex.begin()) return false;
+	--it;
+
+	size_t readOffset = it->second + (addr - it->first);
+	file.seekg(readOffset);
+	file.read(reinterpret_cast<char*>(&outVal), sizeof(T));
+	return file.gcount() == sizeof(T);
+}
+
+template <typename T>
 std::function<bool(T, T)> ScanEngine::getNextScanPredicate(const ScanRequest& req) {
 	T targetValue = 0;
 	T secondValue = 0;
@@ -178,29 +183,21 @@ std::function<bool(T, T)> ScanEngine::getNextScanPredicate(const ScanRequest& re
 }
 
 
-// scan_engine.cpp
-
 template <typename T>
 void ScanEngine::dispatchNextScanForType(const ScanRequest& req,
 	const std::vector<ScanResult>& prevResults,
 	AdaptiveCachePool<ScanResult>& outCache)
 {
 	auto pred = getNextScanPredicate<T>(req);
-
 	bool isFirstNextAfterUnknown = (req.firstType == ScanType::UnknownInitial && prevResults.empty());
-	// 如果是“未知初始值”扫描后的“再次扫描”
 	if (isFirstNextAfterUnknown) {
-		// 情况 A：首扫是未知值，当前结果集为空 -> 从快照文件中读取并对比
 		executeNextScanAfterUnknown<T>(req, pred, outCache);
 	}
 	else if (!prevResults.empty()) {
-		// 情况 B：正常基于上一次搜索结果的再次扫描
 		executeNextScanCore<T>(req, prevResults, pred, outCache);
 	}
 	else {
 		return;
-		// 正常基于上一次结果的再次扫描
-		//executeNextScanCore<T>(req, prevResults, pred, outCache);
 	}
 }
 
@@ -208,7 +205,6 @@ void ScanEngine::dispatchNextScanForType(const ScanRequest& req,
 void ScanEngine::createMemorySnapshot(const std::vector<MemoryRegion>& regions) {
 	auto mem = ProcessManager::instance().memory();
 
-	// 1. 初始化文件与清空旧索引
 	std::ofstream outFile(m_snapshotPath, std::ios::binary);
 	m_snapshotIndex.clear();
 
@@ -217,7 +213,6 @@ void ScanEngine::createMemorySnapshot(const std::vector<MemoryRegion>& regions) 
 	for (const auto& region : regions) {
 		if (isCancelled()) break;
 
-		// 2. 记录当前内存块在文件中的起始偏移量
 		m_snapshotIndex[region.base] = currentFileOffset;
 
 		std::vector<uint8_t> buffer(512 * 1024);
@@ -228,8 +223,6 @@ void ScanEngine::createMemorySnapshot(const std::vector<MemoryRegion>& regions) 
 				outFile.write(reinterpret_cast<char*>(buffer.data()), toRead);
 			}
 			else {
-				// 【关键修复】如果读取失败，必须用零填充文件占位！
-				// 否则后续通过偏移量 (address - regionBase) 寻找数据时会产生错位。
 				std::vector<uint8_t> zeros(toRead, 0);
 				outFile.write(reinterpret_cast<char*>(zeros.data()), toRead);
 			}
@@ -244,23 +237,23 @@ void ScanEngine::executeFirstScanCore(const ScanRequest& req, Predicate pred, Ad
 	auto mem = ProcessManager::instance().memory();
 	auto regions = ProcessManager::instance().regionEnumerator()->enumerate();
 
+
+	this->createMemorySnapshot(regions);
+	if (req.firstType == ScanType::UnknownInitial) return;
+
+
+	// 设置本地读取缓冲区：512KB 是平衡系统调用开销与 L3 缓存命中的黄金值
 	m_totalRegions = static_cast<int>(regions.size());
+	const size_t CHUNK_SIZE = 512 * 1024;
+	std::vector<uint8_t> buffer(CHUNK_SIZE);
+
 
 	// 定义扫描步进：SIMD 通常要求按类型大小对齐才有意义
 	size_t step = (req.alignment > 0) ? req.alignment : 1;
 	size_t typeSize = sizeof(T);
 
-	// 设置本地读取缓冲区：512KB 是平衡系统调用开销与 L3 缓存命中的黄金值
-	const size_t CHUNK_SIZE = 512 * 1024;
-	std::vector<uint8_t> buffer(CHUNK_SIZE);
-
 	for (const auto& region : regions) {
 		if (isCancelled()) break;
-
-		if (req.firstType == ScanType::UnknownInitial) {
-			this->createMemorySnapshot(regions);
-			return; // 直接返回，不生成结果集
-		}
 
 		for (uint64_t curr = region.base; curr < region.base + region.size; curr += CHUNK_SIZE) {
 			if (isCancelled()) break;
@@ -274,6 +267,7 @@ void ScanEngine::executeFirstScanCore(const ScanRequest& req, Predicate pred, Ad
 
 			std::vector<ScanResult> localBatch;
 			localBatch.reserve(4096);
+
 			std::vector<uint64_t> hits; // 存放 SIMD 命中的地址
 			bool processedBySimd = false;
 
@@ -326,20 +320,7 @@ void ScanEngine::executeFirstScanCore(const ScanRequest& req, Predicate pred, Ad
 				for (uint64_t addr : hits) {
 					ScanResult res;
 					res.address = addr;
-					// 对于 ExactValue，值是已知的，避免重复的 unpack 逻辑
-					res.value = (req.firstType == ScanType::ExactValue) ?
-						std::get<ValueParams>(req.params).value1 : 0;
 
-					// 如果是 Between，则需要从 buffer 提取真实值（或者此处不提取以换取速度）
-					if (req.firstType != ScanType::ExactValue) {
-						T val;
-						std::memcpy(&val, buffer.data() + (addr - curr), sizeof(T));
-						res.value = packValue<T>(val);
-					}
-
-					res.firstValue = res.value;
-					res.lastValue = res.value;
-					res.changed = false;
 					localBatch.push_back(res);
 
 					if (localBatch.size() >= 4096) {
@@ -357,10 +338,6 @@ void ScanEngine::executeFirstScanCore(const ScanRequest& req, Predicate pred, Ad
 					if (pred(val)) {
 						ScanResult res;
 						res.address = curr + offset;
-						res.value = packValue<T>(val);
-						res.firstValue = res.value;
-						res.lastValue = res.value;
-						res.changed = false;
 						localBatch.push_back(res);
 
 						if (localBatch.size() >= 4096) {
@@ -382,64 +359,52 @@ void ScanEngine::executeFirstScanCore(const ScanRequest& req, Predicate pred, Ad
 template <typename T, typename Predicate>
 void ScanEngine::executeNextScanCore(const ScanRequest& req, const std::vector<ScanResult>& prevResults, Predicate pred, AdaptiveCachePool<ScanResult>& outCache) {
 	auto mem = ProcessManager::instance().memory();
-	if (!mem || !req.prevResults) return;
 
-	const std::vector<ScanResult>& prevSet = *(req.prevResults);
-	size_t total = prevSet.size();
-	if (total == 0) return;
+	// 打开当前的快照文件（即上一次扫描时生成的镜像）
+	std::ifstream snapFile(m_snapshotPath, std::ios::binary);
+	if (!snapFile) return;
 
-	// 按线程数均匀切分快照向量
-	size_t threads = std::max<size_t>(1, std::thread::hardware_concurrency());
+	// 分块处理已有的地址列表
+	size_t total = prevResults.size();
+	size_t threads = std::thread::hardware_concurrency();
 	size_t chunkSize = (total + threads - 1) / threads;
-	std::vector<std::future<void>> tasks;
 
+	std::vector<std::future<void>> tasks;
 	for (size_t start = 0; start < total; start += chunkSize) {
 		tasks.push_back(GlobalThreadPool::instance().enqueue([&, start, chunkSize]() {
-			if (isCancelled()) return;
-
 			std::vector<ScanResult> localBatch;
 			localBatch.reserve(4096);
 			size_t end = std::min(start + chunkSize, total);
 
-			// 遍历切分好的快照切片
 			for (size_t i = start; i < end; ++i) {
 				if (isCancelled()) break;
 
-				// 直接索引 std::vector，性能极高
-				const ScanResult& oldRes = prevSet[i];
+				uint64_t addr = prevResults[i].address;
+				T curVal, oldVal;
 
-				T oldVal = unpackValue<T>(oldRes.lastValue);
-				T curVal;
+				// 1. 读当前内存
+				if (!mem->read(addr, &curVal, sizeof(T))) continue;
 
-				// 读取最新内存值并验证
-				if (mem->read(oldRes.address, &curVal, sizeof(T))) {
-					if (pred(curVal, oldVal)) {
-						ScanResult newRes;
-						newRes.address = oldRes.address;
-						newRes.value = packValue<T>(curVal);
-						newRes.lastValue = oldRes.value;        // 继承上一次的值
-						newRes.firstValue = oldRes.firstValue;  // 继承首扫的值
-						newRes.changed = (newRes.value != newRes.lastValue);
+				// 2. 【核心】从磁盘快照读旧值
+				if (!this->readValueFromSnapshot<T>(snapFile, addr, oldVal)) continue;
 
-						localBatch.push_back(newRes);
-
-						if (localBatch.size() >= 4096) {
-							outCache.push_back_batch(localBatch);
-							localBatch.clear();
-						}
+				// 3. 对比谓词
+				if (pred(curVal, oldVal)) {
+					localBatch.push_back({ addr }); // 只保留地址
+					if (localBatch.size() >= 4096) {
+						outCache.push_back_batch(localBatch);
+						localBatch.clear();
 					}
 				}
 			}
-			if (!localBatch.empty()) {
-				outCache.push_back_batch(localBatch);
-			}
+			if (!localBatch.empty()) outCache.push_back_batch(localBatch);
 			}));
 	}
 
-	// 等待所有切片验证完毕
-	for (auto& t : tasks) {
-		if (t.valid()) t.wait();
-	}
+	for (auto& t : tasks) t.wait();
+
+	// 【重要】扫描完成后，应该更新快照，供下一次“再次扫描”使用
+	// 注意：为了性能，通常在 Service 层控制何时重新创建快照
 }
 
 
@@ -487,12 +452,7 @@ void ScanEngine::executeNextScanAfterUnknown(const ScanRequest& req, Predicate p
 
 					if (handledBySimd) {
 						for (uint64_t addr : hits) {
-							int32_t cV, oV;
-							std::memcpy(&cV, curBuf.data() + (addr - curr), 4);
-							std::memcpy(&oV, oldBuf.data() + (addr - curr), 4);
-
-							ScanResult res{ addr, packValue<int32_t>(cV), packValue<int32_t>(oV), packValue<int32_t>(oV), (cV != oV) };
-							localBatch.push_back(res);
+							localBatch.push_back({ addr });
 						}
 					}
 				}
@@ -509,10 +469,6 @@ void ScanEngine::executeNextScanAfterUnknown(const ScanRequest& req, Predicate p
 					if (pred(cV, oV)) {
 						ScanResult res;
 						res.address = curr + offset;
-						res.value = packValue<T>(cV);
-						res.lastValue = packValue<T>(oV);
-						res.firstValue = res.lastValue;
-						res.changed = (res.value != res.lastValue);
 						localBatch.push_back(res);
 
 						if (localBatch.size() >= 4096) {

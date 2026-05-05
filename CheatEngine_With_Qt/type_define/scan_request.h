@@ -37,7 +37,7 @@ struct ScanRequest {
     ScanMode    mode = ScanMode::First;
     ScanDataType dataType = ScanDataType::Int64;
 
-    size_t      alignment = 4;
+    size_t      alignment = 1;
     // 仅在 mode == First 时使用
     ScanType    firstType = ScanType::ExactValue;
     // 仅在 mode == Next 时使用

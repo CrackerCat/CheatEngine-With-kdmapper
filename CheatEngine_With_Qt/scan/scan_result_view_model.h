@@ -35,6 +35,4 @@ private:
     ScanResultRepository* m_repo;   // 不拥有所有权
     ScanDataType m_displayType = ScanDataType::Int64;
     static constexpr int MAX_DISPLAY = 10000;
-
-    QString formatCell(const ScanResult& item, int column) const;
 };

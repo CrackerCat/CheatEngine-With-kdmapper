@@ -3,8 +3,6 @@
 #include "scan_result_repository.h"
 #include "scan_result_view_model.h"
 #include "thread_pool.h"
-#include "process_manager.h"
-#include <QMetaObject>
 
 ScanService::ScanService(QObject* parent)
 	: QObject(parent)
@@ -12,62 +10,47 @@ ScanService::ScanService(QObject* parent)
 	, m_repository(std::make_unique<ScanResultRepository>())
 	, m_refreshTimer(new QTimer(this))
 {
+	// ViewModel 现在通过仓库进行懒加载，不直接操作 Service
 	m_viewModel = new ScanResultViewModel(m_repository.get(), this);
-	connect(m_refreshTimer, &QTimer::timeout, this, &ScanService::onRefreshTimer);
+
+	// 自动刷新：现在只需要让视图重新拉取内存值即可，不需要后台计算
+	connect(m_refreshTimer, &QTimer::timeout, this, [this]() {
+		m_viewModel->onRepositoryReplaced(); // 触发重绘
+		});
 }
 
 ScanService::~ScanService() = default;
 
 // ---------------- 公有接口 ----------------
 
-void ScanService::startScan(const ScanRequest& request)
-{
-	if (m_scanning.exchange(true))
-		return;   // 已有扫描在进行
+void ScanService::startScan(const ScanRequest& request) {
+	if (m_scanning.exchange(true)) return;
 
-	// 开始新扫描前停止自动刷新（扫描期间数据可能变更）
 	stopAutoRefresh();
 	m_cancelling = false;
 
-	// 创建进度查询定时器，在扫描期间定期发射进度
+	// 进度定时器 (逻辑保持原样)
 	m_progressTimer = new QTimer(this);
 	connect(m_progressTimer, &QTimer::timeout, this, [this]() {
-		if (!m_scanning.load() || m_cancelling.load()) {
-			// 扫描结束或取消，定时器自毁
-			if (m_progressTimer) {
-				m_progressTimer->stop();
-				m_progressTimer->deleteLater();
-				m_progressTimer = nullptr;
-			}
+		if (!m_scanning.load()) {
+			m_progressTimer->stop();
+			m_progressTimer->deleteLater();
+			m_progressTimer = nullptr;
 			return;
 		}
-		emit progressChanged(m_engine->regionsCompleted(),
-			m_engine->totalRegions());
+		emit progressChanged(m_engine->regionsCompleted(), m_engine->totalRegions());
 		});
-	m_progressTimer->start(50);   // 20Hz 进度更新
+	m_progressTimer->start(100);
 
-
-	// 构造请求副本，为再次扫描注入前次快照
 	ScanRequest finalRequest = request;
 	if (finalRequest.mode == ScanMode::Next) {
 		finalRequest.prevResults = m_repository->createSnapshot();
-
-		// 前提是 UI 传来的 request.firstType 正确带入了上一次的扫描类型
-		bool isFirstNextAfterUnknown = (finalRequest.firstType == ScanType::UnknownInitial &&
-			(m_engine->hasSnapshot() || !finalRequest.prevResults || finalRequest.prevResults->empty()));
-
-		// 如果既不是未知初始值的后续扫描，仓库又是空的，那才判定为无效扫描并结束
-		if (!isFirstNextAfterUnknown && (!finalRequest.prevResults || finalRequest.prevResults->empty())) {
-			m_scanning.store(false);
-			emit scanCompleted();
-			return;
-		}
 	}
 
 	GlobalThreadPool::instance().enqueue([this, finalRequest]() {
 		auto pack = m_engine->execute(finalRequest);
-		QMetaObject::invokeMethod(this, [this, pack = std::move(pack)]() mutable {
-			onScanFinished(std::move(pack));
+		QMetaObject::invokeMethod(this, [this, pack = std::move(pack), mode = finalRequest.mode]() mutable {
+			onScanFinished(std::move(pack), mode);
 			});
 		});
 }
@@ -95,9 +78,7 @@ bool ScanService::isScanning() const
 
 bool ScanService::hasResults() const
 {
-
-
-	return m_repository->resultCount() > 0 || this->hasSnapshot();
+	return m_repository->resultCount() > 0 ;
 }
 
 int ScanService::totalResults() const
@@ -121,16 +102,10 @@ void ScanService::stopAutoRefresh()
 	m_refreshTimer->stop();
 }
 
-bool ScanService::isAutoRefreshing() const
-{
-	return m_refreshTimer->isActive();
-}
-
 void ScanService::clear()
 {
 	stopAutoRefresh();
 	m_repository->replaceAllResults({});
-	m_currentGeneration = m_repository->currentGeneration();
 	m_viewModel->onRepositoryReplaced();
 }
 
@@ -144,7 +119,7 @@ void ScanService::reset()
 
 // ---------------- 内部实现 ----------------
 
-void ScanService::onScanFinished(ScanEngine::ResultPack pack)
+void ScanService::onScanFinished(ScanEngine::ResultPack pack, ScanMode mode)
 {
 	// 进度定时器自毁
 	if (m_progressTimer) {
@@ -159,103 +134,39 @@ void ScanService::onScanFinished(ScanEngine::ResultPack pack)
 		return;
 	}
 
-	GlobalThreadPool::instance().enqueue([this, pack = std::move(pack)]() mutable {
+	GlobalThreadPool::instance().enqueue([this, pack = std::move(pack), mode]() mutable {
 		std::vector<ScanResult> allResults;
 		if (pack.results) {
-			// 获取池中所有线程产生的总元素数量
-			const size_t total = pack.results->total_size();
+			// 1. 设置结果硬上限，防止 UI 渲染过载
+			size_t total = pack.results->total_size();
 			allResults.reserve(total);
 
-			// 利用 Pool 提供的聚合 readChunk 接口分页合并数据
-			// 即使数据最终都在内存 vector 中，分块读取也能避免 readChunk 内部产生过大的临时容器
-			constexpr size_t kReadBatch = 100'000;
-			for (size_t offset = 0; offset < total; offset += kReadBatch) {
-				size_t count = std::min(kReadBatch, total - offset);
-
-				// Pool::readChunk 会自动根据偏移量跨多个子缓存文件/内存块提取数据
-				auto chunk = pack.results->readChunk(offset, count);
-
-				allResults.insert(allResults.end(),
-					std::make_move_iterator(chunk.begin()),
-					std::make_move_iterator(chunk.end()));
-			}
-
-			// 数据收集完毕后，调用 clear 销毁所有子缓存对象及其磁盘临时文件
+			// 2. 只读取地址列表 (ScanResult 只有 address 字段)
+			auto chunk = pack.results->readChunk(0, total);
+			allResults = std::move(chunk);
 			pack.results->clear();
 		}
 
-		// 替换仓库数据
-		QMetaObject::invokeMethod(this, [this, results = std::move(allResults), type = pack.dataType]() mutable {
-			m_repository->replaceAllResults(std::move(results));
-			m_currentGeneration = m_repository->currentGeneration();
+		// 3. 处理快照逻辑：首次扫描时备份路径，再次扫描时滚动路径
+		if (mode == ScanMode::First) {
+			m_firstPath = m_engine->getSnapshotPath();
+			m_firstIndex = m_engine->getSnapshotIndex();
+		}
 
-			// 更新视图模型
-			m_viewModel->setDisplayType(type);
+		// 4. 回到 UI 线程同步仓库状态
+		QMetaObject::invokeMethod(this, [this, results = std::move(allResults), pack_type = pack.dataType]() mutable {
+			// 同步快照路径信息到仓库，供 ViewModel 懒加载读取
+			m_repository->setSnapshotInfo(
+				m_firstPath, m_firstIndex,               // 首次快照
+				m_engine->getSnapshotPath(), m_engine->getSnapshotIndex() // 当前快照作为下一次的 Prev
+			);
+
+			m_repository->replaceAllResults(std::move(results)); // O(1) 移动
+			m_viewModel->setDisplayType(pack_type);
 			m_viewModel->onRepositoryReplaced();
 
 			m_scanning = false;
-			m_cancelling = false;
-
 			emit scanCompleted();
 			});
 		});
-}
-
-void ScanService::onRefreshTimer()
-{
-	if (m_scanning.load() || m_refreshing.exchange(true))
-		return;
-
-	performRefresh();
-}
-
-void ScanService::performRefresh()
-{
-	auto snap = m_repository->createSnapshot();
-	if (!snap || snap->empty()) {
-		m_refreshing = false;
-		return;
-	}
-
-	int gen = m_currentGeneration;
-	auto mem = ProcessManager::instance().memory(); // 依赖全局进程管理器，实际项目保留
-
-	// 在后台线程比较内存变化
-	GlobalThreadPool::instance().enqueue([this, snap, gen, mem]() {
-		std::vector<int> rows;
-		std::vector<uint64_t> vals;
-		std::vector<uint8_t> flags;
-
-		for (size_t i = 0; i < snap->size(); ++i) {
-			const auto& item = (*snap)[i];
-			uint64_t newVal = 0;
-			if (!mem->read(item.address, &newVal, sizeof(newVal)))
-				continue;
-			if (newVal != item.value) {
-				rows.push_back(static_cast<int>(i));
-				vals.push_back(newVal);
-				flags.push_back(1);
-			}
-		}
-
-		QMetaObject::invokeMethod(this, [this, gen, rows = std::move(rows),
-			vals = std::move(vals), flags = std::move(flags)]() {
-				if (gen == m_currentGeneration && !m_scanning.load()) {
-					m_repository->applyIncrementalUpdates(gen, rows, vals, flags);
-					if (!rows.empty()) {
-						int minRow = rows.front();
-						int maxRow = rows.back();
-						int maxDisplay = m_viewModel->rowCount() - 1;
-						maxRow = std::min(maxRow, maxDisplay);
-						if (minRow <= maxRow)
-							m_viewModel->onDeltaApplied(minRow, maxRow);
-					}
-				}
-				m_refreshing = false;
-			});
-		});
-}
-
-bool ScanService::hasSnapshot() const {
-	return m_engine && m_engine->hasSnapshot();
 }

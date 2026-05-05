@@ -18,6 +18,8 @@ public:
         ScanDataType dataType;
     };
 
+
+
     ScanEngine();
     ~ScanEngine();
 
@@ -27,10 +29,16 @@ public:
     bool isCancelled() const { return m_cancel.load(std::memory_order_acquire); }
     int regionsCompleted() const { return m_regionsCompleted.load(std::memory_order_relaxed); }
     int totalRegions() const { return m_totalRegions; }
-    bool hasSnapshot() const { return !m_snapshotIndex.empty(); }
 
+
+    std::string getSnapshotPath() const { return m_snapshotPath; }
+    const std::map<uint64_t, size_t>& getSnapshotIndex() const { return m_snapshotIndex; }
 
 private:
+
+    template <typename T>
+    bool readValueFromSnapshot(std::ifstream& file, uint64_t addr, T& outVal);
+
     void createMemorySnapshot(const std::vector<MemoryRegion>& regions);
     bool readSnapshotDataOptimized(std::ifstream& inFile, uint64_t address, uint8_t* buffer, size_t size);
     //未知初始值扫描优化
@@ -63,4 +71,9 @@ private:
 
     std::string m_snapshotPath;
     std::map<uint64_t, size_t>  m_snapshotIndex;
+
+    std::string m_firstSnapshotPath; // 永久保存首次扫描的镜像
+    std::string m_prevSnapshotPath;  // 动态更新上次扫描的镜像
+    std::map<uint64_t, size_t> m_firstSnapshotIndex;
+    std::map<uint64_t, size_t> m_prevSnapshotIndex;
 };

@@ -609,7 +609,7 @@ void MainWindow::onScanCompleted()
 {
 
     bool canNextScan = m_scanService->hasResults() ||
-        (m_currentFirstScanType == ScanType::UnknownInitial && m_scanService->hasSnapshot());
+        (m_currentFirstScanType == ScanType::UnknownInitial );
 
     ui->pushButton_new_find->setEnabled(true);
     ui->pushButton_next_find->setEnabled(canNextScan);
