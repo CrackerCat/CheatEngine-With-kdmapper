@@ -1,8 +1,10 @@
 #include "MainWindow.h"
 #include <QtWidgets/QApplication>
+#include "TempPathManager.h"
 
 int main(int argc, char *argv[])
 {
+    TempPathManager::cleanupOrphanedDirs();
     QApplication a(argc, argv);
     MainWindow w;
     w.show();

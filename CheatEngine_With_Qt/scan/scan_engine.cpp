@@ -1,11 +1,14 @@
 ﻿#include "scan_engine.h"
 #include "process_manager.h"
 #include "thread_pool.h"
-#include "SimdKernels.h" // 引入你刚才添加的类
+#include "SimdKernels.h" 
+#include "TempPathManager.h"
 #include <cstring>
 #include <algorithm>
 #include <future>
 #include <thread>
+
+
 
 
 #define AdaptiveCachePool_SIZE 10240
@@ -31,6 +34,18 @@ namespace {
 		return raw;
 	}
 }
+
+ScanEngine::ScanEngine() {
+	// 【修改】在构造函数中动态获取路径
+	m_snapshotPath = (std::filesystem::path(TempPathManager::getWorkDir()) / "mem_snapshot.bin").string();
+}
+
+// 在析构函数中手动尝试删除（虽然崩溃时无效，但正常退出能释放）
+ScanEngine::~ScanEngine() {
+	std::error_code ec;
+	std::filesystem::remove(m_snapshotPath, ec);
+}
+
 
 // ============================================================================
 // 核心对外接口

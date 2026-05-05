@@ -106,6 +106,7 @@
     <QtMoc Include="scan\scan_result_view_model.h" />
     <QtMoc Include="scan\scan_service.h" />
     <ClInclude Include="SimdKernels.h" />
+    <ClInclude Include="TempPathManager.h" />
     <ClInclude Include="thread_pool.h" />
     <ClInclude Include="type_define\address_item.h" />
     <ClInclude Include="type_define\memory_region.h" />

@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>688</width>
+    <width>841</width>
     <height>668</height>
    </rect>
   </property>
@@ -134,6 +134,9 @@
           </item>
           <item>
            <widget class="QProgressBar" name="progressBar">
+            <property name="enabled">
+             <bool>true</bool>
+            </property>
             <property name="sizePolicy">
              <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
               <horstretch>0</horstretch>
@@ -314,41 +317,6 @@
                  <item>
                   <property name="text">
                    <string>未知的初始值</string>
-                  </property>
-                 </item>
-                 <item>
-                  <property name="text">
-                   <string>变动的数值</string>
-                  </property>
-                 </item>
-                 <item>
-                  <property name="text">
-                   <string>未变动的数值</string>
-                  </property>
-                 </item>
-                 <item>
-                  <property name="text">
-                   <string>对比上次增加的值</string>
-                  </property>
-                 </item>
-                 <item>
-                  <property name="text">
-                   <string>对比上次减少的值</string>
-                  </property>
-                 </item>
-                 <item>
-                  <property name="text">
-                   <string>数值增加了多少</string>
-                  </property>
-                 </item>
-                 <item>
-                  <property name="text">
-                   <string>数值减少了多少</string>
-                  </property>
-                 </item>
-                 <item>
-                  <property name="text">
-                   <string>以...结尾的数值</string>
                   </property>
                  </item>
                 </widget>
@@ -816,6 +784,13 @@
       </item>
       <item>
        <layout class="QVBoxLayout" name="verticalLayout_8">
+        <item>
+         <widget class="QLabel" name="label_scan_result">
+          <property name="text">
+           <string>No Scan</string>
+          </property>
+         </widget>
+        </item>
         <item>
          <widget class="QTabWidget" name="tabWidget">
           <property name="sizePolicy">

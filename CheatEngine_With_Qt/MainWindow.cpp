@@ -55,7 +55,20 @@ void MainWindow::initViews()
 {
     setupScanResultView();
     replaceAddressTable();
+    ui->progressBar->setVisible(false);
 }
+
+void MainWindow::updateCountLabels()
+{
+    // 获取仓库中的总结果数
+    int total = m_scanService->totalResults();
+
+    // 获取当前视图模型显示的条目数
+    int shown = m_resultModel->rowCount();
+
+    ui->label_scan_result->setText(QString("Found: %1 Shown: %2").arg(total).arg(shown));
+}
+
 
 void MainWindow::setupScanResultView()
 {
@@ -213,7 +226,7 @@ void MainWindow::onOpenProcess()
 
     m_scanService->cancel();
     m_scanService->stopAutoRefresh();
-    m_scanService->clear();           // 使用 ScanService::clear()
+    m_scanService->clear();       
 
     ProcessManager::instance().detach();
 
@@ -225,6 +238,12 @@ void MainWindow::onOpenProcess()
         setWindowTitle(QString("Cheat Engine - %1").arg(QString::fromStdString(p.name)));
 
         QComboBox* moduleBox = ui->comboBox_process_module_List;
+
+        // UI 还原
+        ui->pushButton_new_find->setText("首次扫描");
+        ui->pushButton_new_find->setEnabled(true);
+        ui->pushButton_next_find->setEnabled(false);
+
         moduleBox->clear();
         moduleBox->addItem("All");
         const auto& modules = ProcessManager::instance().modules();
@@ -485,6 +504,20 @@ ScanRequest MainWindow::buildNextScanRequest() const
 // ==================== 扫描执行 ====================
 void MainWindow::onFirstScan()
 {
+    if (!m_isFirstScan) {
+        // 执行重置逻辑
+        m_isFirstScan = true;
+
+        m_scanService->clear();         // 清空仓库结果
+        updateCountLabels();            // 更新数量显示为 0
+        updateScanTypeComboBox();       // 还原下拉菜单为首次扫描菜单
+
+        ui->pushButton_new_find->setText("首次扫描"); // 还原按钮文字
+        ui->pushButton_next_find->setEnabled(false);
+        return; // 结束，等待用户输入后再点击“首次扫描”
+    }
+
+
     if (!ProcessManager::instance().memory()) {
         QMessageBox::warning(this, "Error", "Please open a process first.");
         return;
@@ -514,10 +547,13 @@ void MainWindow::onFirstScan()
         }
     }
 
-    
     m_currentDataType = req.dataType;
     m_currentFirstScanType = req.firstType;
-    m_isFirstScan = false;
+
+
+    ui->progressBar->setVisible(true);
+    ui->progressBar->setValue(0);
+    statusBar()->showMessage(tr("正在初始化扫描..."));
 
     m_scanService->startScan(req);
     ui->pushButton_new_find->setEnabled(false);
@@ -550,6 +586,24 @@ void MainWindow::onNextScan()
     ui->pushButton_next_find->setEnabled(false);
 }
 
+void MainWindow::updateScanTypeComboBox()
+{
+    ui->comboBox_atribute_For_Find->blockSignals(true);
+    ui->comboBox_atribute_For_Find->clear();
+
+    if (m_isFirstScan) {
+        ui->comboBox_atribute_For_Find->addItems({ "精确数值", "值大于", "值小于", "介于两者之间", "未知初始值" });
+    }
+    else {
+        ui->comboBox_atribute_For_Find->addItems({ "精确数值", "增加的值", "减少的值", "变动的值", "未变动的值", "介于两者之间","数值增加了多少","数值减少了多少","以...结尾的数值" });
+    }
+
+    ui->comboBox_atribute_For_Find->setCurrentIndex(0);
+    ui->comboBox_atribute_For_Find->blockSignals(false);
+    // 【关键修复】手动调用一次更新函数，因为 signals 被 block 了
+    updateScanTypeUi(ui->comboBox_atribute_For_Find->currentIndex());
+}
+
 // ==================== 扫描完成槽 ====================
 void MainWindow::onScanCompleted()
 {
@@ -560,22 +614,12 @@ void MainWindow::onScanCompleted()
     ui->pushButton_new_find->setEnabled(true);
     ui->pushButton_next_find->setEnabled(canNextScan);
 
+    m_isFirstScan = false;
 
-    ui->comboBox_atribute_For_Find->blockSignals(true);
-    ui->comboBox_atribute_For_Find->clear();
+    ui->pushButton_new_find->setText("新扫描");
+    updateScanTypeComboBox();
+    updateCountLabels();
 
-    if (m_isFirstScan) {
-        ui->comboBox_atribute_For_Find->addItems({ "精确数值", "值大于", "值小于", "介于两者之间", "未知初始值" });
-    }
-    else {
-        ui->comboBox_atribute_For_Find->addItems({ "精确数值", "增加的值", "减少的值", "变动的值", "未变动的值", "介于两者之间" });
-    }
-
-    ui->comboBox_atribute_For_Find->setCurrentIndex(0);
-    ui->comboBox_atribute_For_Find->blockSignals(false);
-
-    // 【关键修复】手动调用一次更新函数，因为 signals 被 block 了
-    updateScanTypeUi(ui->comboBox_atribute_For_Find->currentIndex());
 
     if (isStringType(m_currentDataType) || m_currentDataType == ScanDataType::ByteArray) {
         m_scanService->stopAutoRefresh();
@@ -585,16 +629,18 @@ void MainWindow::onScanCompleted()
     }
 
     ui->progressBar->setVisible(false);
+    statusBar()->showMessage(tr("扫描完成，找到 %1 个结果").arg(m_scanService->totalResults()), 3000);
 }
 
 // ==================== 进度变化槽 ====================
 void MainWindow::onProgressChanged(int completed, int total)
 {
+    if (total <= 0) return;
     ui->progressBar->setVisible(true);
     ui->progressBar->setRange(0, total);
     ui->progressBar->setValue(completed);
-    statusBar()->showMessage(
-        QString("Scanning... region %1 / %2").arg(completed).arg(total));
+    double percent = (total > 0) ? (static_cast<double>(completed) / total * 100.0) : 0.0;
+    statusBar()->showMessage(QString("正在扫描: %1% (区域 %2 / %3)").arg(percent, 0, 'f', 1).arg(completed).arg(total));
 }
 
 // ==================== 双击添加地址 ====================
@@ -622,8 +668,8 @@ void MainWindow::resetToNoProcess()
 
     m_scanService->cancel();
     m_scanService->stopAutoRefresh();
-    m_scanService->clear();                     // 使用 clear() 替代 clearResults()
-
+    m_scanService->clear();                   
+    updateCountLabels();
     ProcessManager::instance().detach();
     addressModel->clear();
 

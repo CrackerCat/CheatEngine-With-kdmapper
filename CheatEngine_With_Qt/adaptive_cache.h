@@ -1,4 +1,5 @@
 #pragma once
+#include "TempPathManager.h"
 #include <vector>
 #include <string>
 #include <mutex>
@@ -50,20 +51,6 @@ public:
         }
         ++m_count;
     }
-
-    //void push_back_batch(const std::vector<T>& items) {
-    //    if (items.empty()) return;
-    //    std::lock_guard<std::mutex> lock(m_mtx);
-    //    if (!m_onDisk && (m_buffer.size() + items.size() < m_threshold)) {
-    //        m_buffer.insert(m_buffer.end(), items.begin(), items.end());
-    //    }
-    //    else {
-    //        if (!m_onDisk) flushToDisk();
-    //        ensureFileOpen();
-    //        m_diskOut.write(reinterpret_cast<const char*>(items.data()), items.size() * sizeof(T));
-    //    }
-    //    m_count += items.size();
-    //}
 
     void push_back_batch(const std::vector<T>& items) {
         if (items.empty()) return;
@@ -149,7 +136,7 @@ private:
     void ensureFileOpen() {
         if (!m_diskOut.is_open()) {
             if (m_diskPath.empty()) {
-                auto dir = std::filesystem::temp_directory_path();
+                auto dir = std::filesystem::path(TempPathManager::getWorkDir());
                 auto ts = std::chrono::high_resolution_clock::now().time_since_epoch().count();
                 // 【修改】文件名包含唯一标识，避免冲突
                 m_diskPath = (dir / ("ACache_" + m_uniqueId + "_" + std::to_string(ts) + ".tmp")).string();

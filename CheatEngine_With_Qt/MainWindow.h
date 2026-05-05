@@ -26,6 +26,7 @@ private:
     void setupUi();
     void initServices();          // 创建 ScanService 并获取视图模型
     void initViews();
+    void updateCountLabels();
     void setupScanResultView();
     void replaceAddressTable();
     void initTimers();
@@ -69,6 +70,7 @@ private slots:
     void onOpenProcess();
     void onFirstScan();
     void onNextScan();
+    void updateScanTypeComboBox();
     void onDoubleClickScanResult(const QModelIndex& index);
     void onScanCompleted();
     void onProgressChanged(int completed, int total);

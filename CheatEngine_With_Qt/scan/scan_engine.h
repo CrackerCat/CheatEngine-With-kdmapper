@@ -18,7 +18,8 @@ public:
         ScanDataType dataType;
     };
 
-    ScanEngine() = default;
+    ScanEngine();
+    ~ScanEngine();
 
     ResultPack execute(const ScanRequest& request);
 
@@ -60,6 +61,6 @@ private:
     std::atomic<int>  m_regionsCompleted{ 0 };
     int               m_totalRegions = 0;
 
-    std::string m_snapshotPath = "./temp_snapshot.bin";
+    std::string m_snapshotPath;
     std::map<uint64_t, size_t>  m_snapshotIndex;
 };
