@@ -17,8 +17,58 @@ Chinese commemt:
 
 我的bilibili主页 https://space.bilibili.com/131403708
 
+version:2026/5/3
 
 
+Qt重构初版 Cheat Engine  实现了首次扫描、下一次扫描、核心磁盘缓存、扫描引擎、内存枚举
+
+AI 辅助开发和遇到的问题链接
+
+https://chat.deepseek.com/share/dwx8by5y1aop9tcp83
+
+https://gemini.google.com/share/8460f0ffaa83
+
+https://chatgpt.com/g/g-p-69f130f821608191b7f8898d76d6cf87-cheat-engine/project
+
+
+特点
+
+1、教科书级别，现代工程级别软件工程架构，Scan层标准输入输出流，高内聚、低耦合架构，极高的代码可读性，可维护性
+
+2、海量数据、高并发、线程安全，内存优化策略、多线程局部TLS，完美的UI异步架构再多条目的地址内存拷贝也不会导致UI卡顿
+
+3、自适应磁盘扫描缓冲，即使再多的地址条目也不会大量占用内存
+
+4、反作弊安全，规避官方版Cheat Engine 的lazarus 架构TForm、和一些pascal语言库，应用层不会出问题
+
+5、工程级别的架构，应用层对底层实现透明，可完美扩展，DBK、WIN_API、DBVM
+
+6、强大的反汇编引擎，使用成熟的库来实现反汇编，解决原版CE项目自写反汇编引擎混乱，代码可读性差问题
+
+7、集成kdmapper_dll，自动加载映射 DBK，无需官方版Cheat Engine需要各种注册表Key才能注册驱动的痛点
+
+
+
+项目开发环境
+
+
+Visual Studio、Qt6
+
+
+C++代码编译模式MDd、和MD (注意不要使用 MTd、MT的编译模式，会和Qt库冲突，导致异常崩溃)
+
+
+
+
+<img width="851" height="876" alt="image" src="https://github.com/user-attachments/assets/c6c38e76-0bef-4efe-a925-7262ba8acb13" />
+
+
+扫描架构理解
+
+
+
+
+驱动层DBK
 
 本项目的内容和目的，是在基于kdmmaper和Cheat Engine的开源项目，手动映射Cheat Engine的DBKKernel驱动，实现DBK驱动模块隐藏，与应用层Cheat Engine应用通讯，DBVM加载、内存搜索、软件调试等、官方版CE全部功能
 
@@ -106,51 +156,6 @@ Window内核项目通讯心得
 
 
 
-version:2026/5/3
-
-
-Qt重构初版 Cheat Engine  实现了首次扫描、下一次扫描、核心磁盘缓存、扫描引擎、内存枚举
-
-AI 辅助开发和遇到的问题链接
-
-https://chat.deepseek.com/share/dwx8by5y1aop9tcp83
-
-https://gemini.google.com/share/8460f0ffaa83
-
-https://chatgpt.com/g/g-p-69f130f821608191b7f8898d76d6cf87-cheat-engine/project
-
-
-特点
-
-
-1、海量大数据高并发线程安全、涵盖场景: 扫描、列表刷新、指针扫描，解决官方CE，首次扫描低效率线程不安全问题
-
-2、磁盘缓存，即使再多的地址条目也不会大量占用内存
-
-3、反作弊安全，规避官方版Cheat Engine 的lazarus 架构TForm、和一些pascal语言库，应用层不会出问题
-
-4、工程级别的架构，应用层对底层实现透明，可完美扩展，DBK、WIN_API、DBVM
-
-5、强大的反汇编引擎，使用成熟的库来实现反汇编，解决原版CE项目自写反汇编引擎混乱，代码可读性差问题
-
-6、集成kdmapper_dll，自动加载映射 DBK，无需官方版Cheat Engine需要各种注册表Key才能注册驱动的痛点
-
-
-项目开发环境
-
-
-Visual Studio、Qt6
-
-
-C++代码编译模式MDd、和MD (注意不要使用 MTd、MT的编译模式，会和Qt库冲突，导致异常崩溃)
-
-
-
-
-<img width="851" height="876" alt="image" src="https://github.com/user-attachments/assets/c6c38e76-0bef-4efe-a925-7262ba8acb13" />
-
-
-扫描架构理解
 
 
 
