@@ -57,8 +57,9 @@ Visual Studio、Qt6
 
 C++代码编译模式MDd、和MD (注意不要使用 MTd、MT的编译模式，会和Qt库冲突，导致异常崩溃)
 
+扫描架构图
 
-
+<img width="642" height="548" alt="image" src="https://github.com/user-attachments/assets/5ab3766c-08bb-4c9d-8cd6-2248a60a4694" />
 
 <img width="851" height="876" alt="image" src="https://github.com/user-attachments/assets/c6c38e76-0bef-4efe-a925-7262ba8acb13" />
 
