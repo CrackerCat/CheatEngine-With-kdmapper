@@ -39,16 +39,21 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
-    <IncludePath>$(ProjectDir)\Factory;$(ProjectDir)\Implement\Win_API;$(ProjectDir)\interface;$(ProjectDir)\type_define;$(ProjectDir)\scan;$(ProjectDir)\utils;$(IncludePath)</IncludePath>
+    <IncludePath>$(ProjectDir)\Factory;$(ProjectDir)\Implement\Win_API;$(ProjectDir)\interface;$(ProjectDir)\type_define;$(ProjectDir)\scan;$(ProjectDir)\translations;$(ProjectDir)\utils;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <PostBuildEvent>
-      <Command>"E:\Qt\6.8.2\msvc2022_64\bin\windeployqt.exe" "$(TargetPath)" --no-translations --no-system-d3d-compiler</Command>
+      <Command>"E:\Qt\6.8.2\msvc2022_64\bin\windeployqt.exe" "$(TargetPath)" --no-translations --no-system-d3d-compiler 
+powershell -Command "&amp; { $src = '$(ProjectDir)'; $dest = '$(OutDir)language_Translate\'; if (-not (Test-Path $dest)) { New-Item $dest -ItemType Directory | Out-Null }; Get-ChildItem -Path $src -Filter '*.qm' | Copy-Item -Destination $dest -Force }"</Command>
     </PostBuildEvent>
     <ClCompile>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
+    <PreBuildEvent>
+      <Command>
+      </Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'" Label="Configuration">
     <ClCompile>
@@ -72,6 +77,7 @@
     <ClCompile Include="Implement\Win_API\win32_memory_region_enumerator.cpp" />
     <ClCompile Include="Implement\Win_API\win32_module_enumerator.cpp" />
     <ClCompile Include="Implement\Win_API\win32_process_enumerator.cpp" />
+    <ClCompile Include="language_translations\translator_manager.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="process_dialog.cpp" />
     <ClCompile Include="process_manager.cpp" />
@@ -101,6 +107,7 @@
     <ClInclude Include="interface\imemory_region_enumerator.h" />
     <ClInclude Include="interface\imodule_enumerator.h" />
     <ClInclude Include="interface\iprocess_enumerator.h" />
+    <QtMoc Include="language_translations\translator_manager.h" />
     <ClInclude Include="scan\scan_engine.h" />
     <ClInclude Include="scan\scan_result_formatter.h" />
     <ClInclude Include="scan\scan_result_repository.h" />
@@ -124,6 +131,9 @@
   </ItemGroup>
   <ItemGroup>
     <QtUic Include="CheatEngine_With_Qt.ui" />
+  </ItemGroup>
+  <ItemGroup>
+    <QtTranslation Include="translations\Translation_en.ts" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Condition="Exists('$(QtMsBuild)\qt.targets')">

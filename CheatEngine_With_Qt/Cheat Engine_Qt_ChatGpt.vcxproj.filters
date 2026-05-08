@@ -29,6 +29,9 @@
     <Filter Include="utils">
       <UniqueIdentifier>{68348cca-8353-406d-b91d-30c6838be448}</UniqueIdentifier>
     </Filter>
+    <Filter Include="utils\language">
+      <UniqueIdentifier>{df5421cc-bdc8-4c86-81cf-94791a3dba8b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="process_dialog.h">
@@ -40,6 +43,9 @@
     </QtMoc>
     <QtMoc Include="scan\scan_service.h">
       <Filter>new_scan_framework</Filter>
+    </QtMoc>
+    <QtMoc Include="language_translations\translator_manager.h">
+      <Filter>utils\language</Filter>
     </QtMoc>
   </ItemGroup>
   <ItemGroup>
@@ -103,6 +109,9 @@
     </ClCompile>
     <ClCompile Include="scan\scan_snapshot_manager.cpp">
       <Filter>new_scan_framework</Filter>
+    </ClCompile>
+    <ClCompile Include="language_translations\translator_manager.cpp">
+      <Filter>utils\language</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -204,5 +213,10 @@
     <QtUic Include="CheatEngine_With_Qt.ui">
       <Filter>Form Files</Filter>
     </QtUic>
+  </ItemGroup>
+  <ItemGroup>
+    <QtTranslation Include="translations\Translation_en.ts">
+      <Filter>utils\language</Filter>
+    </QtTranslation>
   </ItemGroup>
 </Project>

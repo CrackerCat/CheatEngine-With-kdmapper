@@ -1,4 +1,7 @@
 ﻿// mainwindow.cpp
+
+//  "([^"]*[\u4e00-\u9fff][^"]*)" 这个正则表达式可以匹配包含至少一个中文字符的字符串，适用于提取中文文本。它的工作原理如下
+
 #include "mainwindow.h"
 #include "ui_CheatEngine_With_Qt.h"
 #include "address_list_model.h"
@@ -8,6 +11,7 @@
 #include "scan_service.h"
 #include "scan_result_view_model.h"
 #include "scan_request_result_type_define.h"
+#include "translator_manager.h"
 
 #include <QTimer>
 #include <QTableView>
@@ -26,11 +30,11 @@ MainWindow::MainWindow(QWidget* parent)
 {
     setupUi();
     initServices();
+    initLanguageCombobox();
     initViews();
     initTimers();
     initDataTypeComboBox();
     connectSignals();
-
     updateScanTypeComboBox();
     refreshUiControls();
 }
@@ -47,12 +51,26 @@ void MainWindow::initServices()
     addressModel = new AddressListModel(this);
 }
 
+void MainWindow::initLanguageCombobox(int currentLangIndex)
+{
+    ui->comboBox_language->blockSignals(true);
+    ui->comboBox_language->clear();
+    ui->comboBox_language->addItem(tr("language"));
+    ui->comboBox_language->addItem(tr("English"));
+    ui->comboBox_language->setCurrentIndex(currentLangIndex);
+    ui->comboBox_language->blockSignals(false);
+    connect(ui->comboBox_language, QOverload<int>::of(&QComboBox::currentIndexChanged),
+        this, &MainWindow::onLanguageChanged);
+    
+}
+
 void MainWindow::initViews()
 {
     setupScanResultView();
     replaceAddressTable();
     ui->progressBar->setVisible(false);
     ui->checkBox_Only_Simple_Value->setToolTip(tr("仅扫描看起来是普通数值的地址，排除指针、代码、加密数据等复杂值"));
+    ui->checkBox_percent->setToolTip(tr("选中时，后面的输入框预期输入数字为 1 到 100 之间的百分比值\n\n对比上一次变化的幅度，比如100变成 150 就是减少/增大了百分之50"));
 }
 
 void MainWindow::updateCountLabels()
@@ -63,7 +81,7 @@ void MainWindow::updateCountLabels()
     // 获取当前视图模型显示的条目数
     int shown = m_resultModel->rowCount();
 
-    ui->label_scan_result->setText(QString("Found: %1 Shown: %2").arg(total).arg(shown));
+    ui->label_scan_result->setText(QString(tr("找到总地址: %1 显示地址: %2")).arg(total).arg(shown));
 }
 
 
@@ -279,18 +297,18 @@ void MainWindow::onOpenProcess()
 
         // UI 还原
         ui->comboBox_Value_Data_Size->setEnabled(true);
-        ui->pushButton_new_find->setText("首次扫描");
+        ui->pushButton_new_find->setText(tr("首次扫描"));
         ui->pushButton_new_find->setEnabled(true);
         ui->pushButton_next_find->setEnabled(false);
 
         moduleBox->clear();
-        moduleBox->addItem("All");
+        moduleBox->addItem(tr("全部模块"));
         const auto& modules = ProcessManager::instance().modules();
         for (const auto& mod : modules)
             moduleBox->addItem(QString::fromStdString(mod.name));
     }
     else {
-        QMessageBox::warning(this, "Error", "Failed to attach to process.");
+        QMessageBox::warning(this, tr("错误"), tr("附加进程失败."));
     }
 
     refreshUiControls();
@@ -304,17 +322,17 @@ void MainWindow::initDataTypeComboBox()
     ui->comboBox_Value_Data_Size->clear();
 
     // 使用 QVariant 绑定枚举值到每一个条目
-    ui->comboBox_Value_Data_Size->addItem("Binary (Bit)", (int)ScanDataType::Bit);
-    ui->comboBox_Value_Data_Size->addItem("1 Byte", (int)ScanDataType::Int8);
-    ui->comboBox_Value_Data_Size->addItem("2 Bytes", (int)ScanDataType::Int16);
-    ui->comboBox_Value_Data_Size->addItem("4 Bytes", (int)ScanDataType::Int32);
-    ui->comboBox_Value_Data_Size->addItem("8 Bytes", (int)ScanDataType::Int64);
-    ui->comboBox_Value_Data_Size->addItem("Float", (int)ScanDataType::Float32);
-    ui->comboBox_Value_Data_Size->addItem("Double", (int)ScanDataType::Float64);
-    ui->comboBox_Value_Data_Size->addItem("String", (int)ScanDataType::AsciiString);
-    ui->comboBox_Value_Data_Size->addItem("Array of Byte", (int)ScanDataType::ByteArray);
-    ui->comboBox_Value_Data_Size->addItem("All (Integer/Float)", (int)ScanDataType::All);
-    ui->comboBox_Value_Data_Size->addItem("Structure", (int)ScanDataType::Structure);
+    ui->comboBox_Value_Data_Size->addItem(tr("二进制 (Bit)"), (int)ScanDataType::Bit);
+    ui->comboBox_Value_Data_Size->addItem(tr("1 字节整数"), (int)ScanDataType::Int8);
+    ui->comboBox_Value_Data_Size->addItem(tr("2 字节整数"), (int)ScanDataType::Int16);
+    ui->comboBox_Value_Data_Size->addItem(tr("4 字节整数"), (int)ScanDataType::Int32);
+    ui->comboBox_Value_Data_Size->addItem(tr("8 字节整数"), (int)ScanDataType::Int64);
+    ui->comboBox_Value_Data_Size->addItem(tr("32位单浮点小数"), (int)ScanDataType::Float32);
+    ui->comboBox_Value_Data_Size->addItem(tr("64位双浮点小数"), (int)ScanDataType::Float64);
+    ui->comboBox_Value_Data_Size->addItem(tr("字符串"), (int)ScanDataType::AsciiString);
+    ui->comboBox_Value_Data_Size->addItem(tr("字节数组"), (int)ScanDataType::ByteArray);
+    ui->comboBox_Value_Data_Size->addItem(tr("所有类型 (整数和浮点小数)"), (int)ScanDataType::All);
+    ui->comboBox_Value_Data_Size->addItem(tr("结构体"), (int)ScanDataType::Structure);
 
     // 默认选中 4 字节
     ui->comboBox_Value_Data_Size->setCurrentIndex(3);
@@ -455,7 +473,7 @@ void MainWindow::onFirstScan()
 
 
     if (!ProcessManager::instance().memory()) {
-        QMessageBox::warning(this, "Error", "Please open a process first.");
+        QMessageBox::warning(this, tr("错误"), tr("请先打开一个进程."));
         return;
     }
 
@@ -471,13 +489,13 @@ void MainWindow::onFirstScan()
     // 参数校验
     if (std::holds_alternative<StringParams>(req.params)) {
         if (std::get<StringParams>(req.params).text.empty()) {
-            QMessageBox::warning(this, "Error", "Please enter a string to search.");
+            QMessageBox::warning(this, tr("错误"), tr("请输入一个字符串."));
             return;
         }
     }
     else if (std::holds_alternative<AobParams>(req.params)) {
         if (std::get<AobParams>(req.params).pattern.empty()) {
-            QMessageBox::warning(this, "Error", "Please enter a byte pattern.");
+            QMessageBox::warning(this, tr("错误"), tr("请输入一个字节数组类似这样的格式 （如：AA ?? BB）."));
             return;
         }
     }
@@ -485,7 +503,7 @@ void MainWindow::onFirstScan()
         if (req.firstType != ScanType::UnknownInitial &&
             std::get<ValueParams>(req.params).value1 == 0 &&
             ui->lineEdit_ValueInput->text().isEmpty()) {
-            QMessageBox::warning(this, "Error", "Invalid value.");
+            QMessageBox::warning(this, tr("错误"), tr("无效的输入数值."));
             return;
         }
     }
@@ -550,12 +568,12 @@ ScanRequest MainWindow::buildScanRequest(ScanMode mode) const
 void MainWindow::onNextScan()
 {
     if (!ProcessManager::instance().memory()) {
-        QMessageBox::warning(this, "Error", "No process attached.");
+        QMessageBox::warning(this, tr("错误"), tr("没有附加进程."));
         return;
     }
     if (m_scanService->isScanning()) return;
     if (!m_scanService->hasResults()) {
-        QMessageBox::warning(this, "Error", "Please perform a first scan first.");
+        QMessageBox::warning(this, tr("错误"), tr("请进行一次初次扫描."));
         return;
     }
 
@@ -570,12 +588,10 @@ void MainWindow::onNextScan()
     if (std::holds_alternative<ValueParams>(req.params)) {
         if (std::get<ValueParams>(req.params).value1 == 0 &&
             ui->lineEdit_ValueInput->text().isEmpty()) {
-            QMessageBox::warning(this, "Error", "Invalid value.");
+            QMessageBox::warning(this, tr("错误"), tr("无效的输入数值."));
             return;
         }
     }
-
-    
 
     m_scanService->startScan(req);
     m_isScanning = true;
@@ -596,50 +612,50 @@ void MainWindow::updateScanTypeComboBox()
     const bool uniqueCondition = isStringType(dataType) || (dataType == ScanDataType::ByteArray) || (dataType == ScanDataType::Bit);
 
     if (dataType == ScanDataType::Structure) {
-        ui->comboBox_atribute_For_Find->addItem("Structure");
+        ui->comboBox_atribute_For_Find->addItem(tr("结构体扫描"));
     }
     else if (uniqueCondition) {
 
         if (isStringType(dataType)) {
             if (isFirst)
-                ui->comboBox_atribute_For_Find->addItem("字符串搜索", QVariant::fromValue(ScanType::StringScan));
+                ui->comboBox_atribute_For_Find->addItem(tr("字符串搜索"), QVariant::fromValue(ScanType::StringScan));
             else
-                ui->comboBox_atribute_For_Find->addItem("精确数值", QVariant::fromValue(NextScanType::Equal));
+                ui->comboBox_atribute_For_Find->addItem(tr("精确数值"), QVariant::fromValue(NextScanType::Equal));
         }
         else if (dataType == ScanDataType::ByteArray) {
             if (isFirst)
-                ui->comboBox_atribute_For_Find->addItem("字节数组", QVariant::fromValue(ScanType::ExactValue));
+                ui->comboBox_atribute_For_Find->addItem(tr("字节数组"), QVariant::fromValue(ScanType::ExactValue));
             else
-                ui->comboBox_atribute_For_Find->addItem("精确数值", QVariant::fromValue(NextScanType::Equal));
+                ui->comboBox_atribute_For_Find->addItem(tr("精确数值"), QVariant::fromValue(NextScanType::Equal));
         }
         else if (dataType == ScanDataType::Bit) {
             if (isFirst)
-                ui->comboBox_atribute_For_Find->addItem("精确数值", QVariant::fromValue(ScanType::ExactValue));
+                ui->comboBox_atribute_For_Find->addItem(tr("精确数值"), QVariant::fromValue(ScanType::ExactValue));
             else
-                ui->comboBox_atribute_For_Find->addItem("精确数值", QVariant::fromValue(NextScanType::Equal));
+                ui->comboBox_atribute_For_Find->addItem(tr("精确数值"), QVariant::fromValue(NextScanType::Equal));
         }
         ui->comboBox_atribute_For_Find->setCurrentIndex(0);
     }
     else {
         // 数值类型（含 All）动态添加
         if (isFirst) {
-            ui->comboBox_atribute_For_Find->addItem("精确数值", QVariant::fromValue(ScanType::ExactValue));
-            ui->comboBox_atribute_For_Find->addItem("值大于", QVariant::fromValue(ScanType::GreaterThan));
-            ui->comboBox_atribute_For_Find->addItem("值小于", QVariant::fromValue(ScanType::LessThan));
-            ui->comboBox_atribute_For_Find->addItem("介于两者之间", QVariant::fromValue(ScanType::Between));
-            ui->comboBox_atribute_For_Find->addItem("未知初始值", QVariant::fromValue(ScanType::UnknownInitial));
+            ui->comboBox_atribute_For_Find->addItem(tr("精确数值"), QVariant::fromValue(ScanType::ExactValue));
+            ui->comboBox_atribute_For_Find->addItem(tr("值大于"), QVariant::fromValue(ScanType::GreaterThan));
+            ui->comboBox_atribute_For_Find->addItem(tr("值小于"), QVariant::fromValue(ScanType::LessThan));
+            ui->comboBox_atribute_For_Find->addItem(tr("介于两者之间"), QVariant::fromValue(ScanType::Between));
+            ui->comboBox_atribute_For_Find->addItem(tr("未知初始值"), QVariant::fromValue(ScanType::UnknownInitial));
         }
         else {
-            ui->comboBox_atribute_For_Find->addItem("精确数值", QVariant::fromValue(NextScanType::Equal));
-            ui->comboBox_atribute_For_Find->addItem("变动的值", QVariant::fromValue(NextScanType::Changed));
-            ui->comboBox_atribute_For_Find->addItem("未变动的值", QVariant::fromValue(NextScanType::Unchanged));
-            ui->comboBox_atribute_For_Find->addItem("增加的值", QVariant::fromValue(NextScanType::Increased));
-            ui->comboBox_atribute_For_Find->addItem("减少的值", QVariant::fromValue(NextScanType::Decreased));
-            ui->comboBox_atribute_For_Find->addItem("数值增加了多少", QVariant::fromValue(NextScanType::IncreasedBy));
-            ui->comboBox_atribute_For_Find->addItem("数值减少了多少", QVariant::fromValue(NextScanType::DecreasedBy));
-            ui->comboBox_atribute_For_Find->addItem("介于两者之间", QVariant::fromValue(NextScanType::Between));
-            ui->comboBox_atribute_For_Find->addItem("以...结尾的数值", QVariant::fromValue(NextScanType::EndsWith));
-            ui->comboBox_atribute_For_Find->addItem("对比首次扫描", QVariant::fromValue(NextScanType::Compare_to_First_Scan));
+            ui->comboBox_atribute_For_Find->addItem(tr("精确数值"), QVariant::fromValue(NextScanType::Equal));
+            ui->comboBox_atribute_For_Find->addItem(tr("变动的值"), QVariant::fromValue(NextScanType::Changed));
+            ui->comboBox_atribute_For_Find->addItem(tr("未变动的值"), QVariant::fromValue(NextScanType::Unchanged));
+            ui->comboBox_atribute_For_Find->addItem(tr("增加的值"), QVariant::fromValue(NextScanType::Increased));
+            ui->comboBox_atribute_For_Find->addItem(tr("减少的值"), QVariant::fromValue(NextScanType::Decreased));
+            ui->comboBox_atribute_For_Find->addItem(tr("数值增加了多少"), QVariant::fromValue(NextScanType::IncreasedBy));
+            ui->comboBox_atribute_For_Find->addItem(tr("数值减少了多少"), QVariant::fromValue(NextScanType::DecreasedBy));
+            ui->comboBox_atribute_For_Find->addItem(tr("介于两者之间"), QVariant::fromValue(NextScanType::Between));
+            ui->comboBox_atribute_For_Find->addItem(tr("以...结尾的数值"), QVariant::fromValue(NextScanType::EndsWith));
+            ui->comboBox_atribute_For_Find->addItem(tr("对比首次扫描"), QVariant::fromValue(NextScanType::Compare_to_First_Scan));
         }
         ui->comboBox_atribute_For_Find->setCurrentIndex(0);
     }
@@ -665,9 +681,6 @@ void MainWindow::onScanCompleted()
     else {
         m_scanService->startAutoRefresh(200);
     }
-
-    ui->progressBar->setVisible(false);
-    statusBar()->showMessage(tr("扫描完成，找到 %1 个结果").arg(m_scanService->totalResults()), 3000);
 }
 
 // ==================== 进度变化槽 ====================
@@ -678,7 +691,7 @@ void MainWindow::onProgressChanged(int completed, int total)
     ui->progressBar->setRange(0, total);
     ui->progressBar->setValue(completed);
     double percent = (total > 0) ? (static_cast<double>(completed) / total * 100.0) : 0.0;
-    statusBar()->showMessage(QString("正在扫描: %1% (区域 %2 / %3)").arg(percent, 0, 'f', 1).arg(completed).arg(total));
+    statusBar()->showMessage(QString(tr("正在扫描: %1% (区域 %2 / %3)")).arg(percent, 0, 'f', 1).arg(completed).arg(total));
 }
 
 // ==================== 双击添加地址 ====================
@@ -691,7 +704,7 @@ void MainWindow::onDoubleClickScanResult(const QModelIndex& index)
 
     uint64_t val = 0;
     ProcessManager::instance().memory()->read(addr, &val, sizeof(val));
-    QString desc = QString("Address 0x%1").arg(addr, 0, 16);
+    QString desc = QString(tr("地址 0x%1")).arg(addr, 0, 16);
     addressModel->addItem(addr, desc, val);
 }
 
@@ -711,10 +724,10 @@ void MainWindow::resetToNoProcess()
 
 
 
-    ui->label_Process_name->setText("请选择进程");
+    ui->label_Process_name->setText(tr("请选择进程"));
     setWindowTitle("Cheat Engine");
     ui->comboBox_process_module_List->clear();
-    ui->comboBox_process_module_List->addItem("All");
+    ui->comboBox_process_module_List->addItem(tr("全部模块"));
 
     refreshUiControls();
     ui->progressBar->setVisible(false);
@@ -724,7 +737,7 @@ void MainWindow::resetToNoProcess()
 void MainWindow::onProcessTerminated()
 {
     m_attachedToProcess = false;
-    QMessageBox::information(this, "Process terminated", "The target process has exited.");
+    QMessageBox::information(this, tr("进程终止"), tr("目标进程已经退出"));
     resetToNoProcess();
 }
 
@@ -738,24 +751,24 @@ void MainWindow::onAddStructureMember()
 
     // 控件 1: 数据类型
     QComboBox* typeCombo = new QComboBox(rowWidget);
-    typeCombo->addItem("4 Bytes", (int)ScanDataType::Int32);
-    typeCombo->addItem("Float", (int)ScanDataType::Float32);
+    typeCombo->addItem(tr("4 字节"), (int)ScanDataType::Int32);
+    typeCombo->addItem(tr("32位 单浮点小数"), (int)ScanDataType::Float32);
     // ... 添加其他常用类型 ...
 
     // 控件 2: 期望值
     QLineEdit* valEdit = new QLineEdit(rowWidget);
-    valEdit->setPlaceholderText("Value");
+    valEdit->setPlaceholderText(tr("数值"));
 
     // 控件 3: 偏移量 (相对于上一个成员)
     QLineEdit* offsetEdit = new QLineEdit(rowWidget);
-    offsetEdit->setPlaceholderText("Offset");
+    offsetEdit->setPlaceholderText(tr("偏移"));
     offsetEdit->setValidator(new QIntValidator(0, 1024, this)); // 限制偏移量输入
 
-    hLayout->addWidget(new QLabel("Type:", rowWidget));
+    hLayout->addWidget(new QLabel(tr("类型:"), rowWidget));
     hLayout->addWidget(typeCombo);
-    hLayout->addWidget(new QLabel("Val:", rowWidget));
+    hLayout->addWidget(new QLabel(tr("值:"), rowWidget));
     hLayout->addWidget(valEdit);
-    hLayout->addWidget(new QLabel("Off:", rowWidget));
+    hLayout->addWidget(new QLabel(tr("偏移:"), rowWidget));
     hLayout->addWidget(offsetEdit);
 
     ui->layout_Struct_MemberList->addWidget(rowWidget);
@@ -913,8 +926,8 @@ UiContext MainWindow::computeUiContext() const
     if (ctx.isScanning) {
         ctx.newScanButtonEnabled = false;
         ctx.nextScanButtonEnabled = false;
-        ctx.newScanText = "Scanning...";
-        ctx.nextScanText = "Scanning...";
+        ctx.newScanText = tr("扫描中...");
+        ctx.nextScanText = tr("扫描中...");
         return ctx;
     }
 
@@ -924,12 +937,12 @@ UiContext MainWindow::computeUiContext() const
 
     // 动态按钮文字
     if (ctx.isFirstScan) {
-        ctx.newScanText = "首次扫描";
-        ctx.nextScanText = "再次扫描";
+        ctx.newScanText = tr("首次扫描");
+        ctx.nextScanText = tr("再次扫描");
     }
     else {
-        ctx.newScanText = "新扫描";
-        ctx.nextScanText = "再次扫描";
+        ctx.newScanText = tr("新扫描");
+        ctx.nextScanText = tr("再次扫描");
     }
 
     return ctx;
@@ -1063,7 +1076,7 @@ bool MainWindow::validateScanInput(ScanMode mode)
     // 结构体模式：至少需要一个成员
     if (dataType == ScanDataType::Structure) {
         if (ui->layout_Struct_MemberList->count() == 0) {
-            QMessageBox::warning(this, "错误", "结构体扫描至少需要添加一个成员。");
+            QMessageBox::warning(this, tr("错误"), tr("结构体扫描至少需要添加一个成员。"));
             return false;
         }
         return true;
@@ -1072,7 +1085,7 @@ bool MainWindow::validateScanInput(ScanMode mode)
     // 字符串模式：输入不能为空
     if (isStringType(dataType)) {
         if (ui->lineEdit_ValueInput->text().trimmed().isEmpty()) {
-            QMessageBox::warning(this, "错误", "请输入要搜索的字符串。");
+            QMessageBox::warning(this, tr("错误"), tr("请输入要搜索的字符串。"));
             return false;
         }
         return true;
@@ -1082,7 +1095,7 @@ bool MainWindow::validateScanInput(ScanMode mode)
     if (dataType == ScanDataType::ByteArray) {
         QString text = ui->lineEdit_ValueInput->text().trimmed();
         if (text.isEmpty()) {
-            QMessageBox::warning(this, "错误", "请输入字节数组模式（如：AA ?? BB）。");
+            QMessageBox::warning(this, tr("错误"), tr("请输入字节数组模式（如：AA ?? BB）。"));
             return false;
         }
         // 简单验证：至少有一个有效字节或通配符
@@ -1099,12 +1112,12 @@ bool MainWindow::validateScanInput(ScanMode mode)
                 hasValid = true;
             }
             else {
-                QMessageBox::warning(this, "错误", QString("无效的字节：“%1”").arg(tok));
+                QMessageBox::warning(this, tr("错误"), QString(tr("无效的字节：“%1”")).arg(tok));
                 return false;
             }
         }
         if (!hasValid) {
-            QMessageBox::warning(this, "错误", "请输入至少一个有效字节或通配符。");
+            QMessageBox::warning(this, tr("错误"), tr("请输入至少一个有效字节或通配符。"));
             return false;
         }
         return true;
@@ -1130,13 +1143,13 @@ bool MainWindow::validateScanInput(ScanMode mode)
 
     // 需要至少一个输入框
     if (ui->lineEdit_ValueInput->text().trimmed().isEmpty()) {
-        QMessageBox::warning(this, "错误", "请输入要搜索的数值。");
+        QMessageBox::warning(this, tr("错误"), tr("请输入要搜索的数值。"));
         return false;
     }
 
     // 如果有第二个输入框（Between）
     if (ui->lineEdit_ValueInput2->isVisible() && ui->lineEdit_ValueInput2->text().trimmed().isEmpty()) {
-        QMessageBox::warning(this, "错误", "请输入第二个数值（范围上限）。");
+        QMessageBox::warning(this, tr("错误"), tr("请输入第二个数值（范围上限）。"));
         return false;
     }
 
@@ -1146,14 +1159,14 @@ bool MainWindow::validateScanInput(ScanMode mode)
         bool ok = false;
         ui->lineEdit_ValueInput->text().toDouble(&ok);
         if (!ok) {
-            QMessageBox::warning(this, "错误", "无效的浮点数格式。");
+            QMessageBox::warning(this, tr("错误"), tr("无效的浮点数格式。"));
             return false;
         }
         if (ui->lineEdit_ValueInput2->isVisible()) {
             ok = false;
             ui->lineEdit_ValueInput2->text().toDouble(&ok);
             if (!ok) {
-                QMessageBox::warning(this, "错误", "第二个数值不是有效的浮点数。");
+                QMessageBox::warning(this, tr("错误"), tr("第二个数值不是有效的浮点数。"));
                 return false;
             }
         }
@@ -1164,18 +1177,58 @@ bool MainWindow::validateScanInput(ScanMode mode)
         int base = isHex ? 16 : 10;
         text1.toULongLong(&ok, base);
         if (!ok) {
-            QMessageBox::warning(this, "错误", "无效的整数格式。");
+            QMessageBox::warning(this, tr("错误"), tr("无效的整数格式。"));
             return false;
         }
         if (ui->lineEdit_ValueInput2->isVisible()) {
             ok = false;
             ui->lineEdit_ValueInput2->text().toULongLong(&ok, base);
             if (!ok) {
-                QMessageBox::warning(this, "错误", "第二个数值不是有效的整数。");
+                QMessageBox::warning(this, tr("错误"), tr("第二个数值不是有效的整数。"));
                 return false;
             }
         }
     }
 
     return true;
+}
+
+void MainWindow::onLanguageChanged(int index)
+{
+    if (index == 0) {
+        TranslatorManager::instance().removeTranslation();
+    }
+    else if (index == 1) {
+        if (!TranslatorManager::instance().loadTranslation("en")) {
+            QMessageBox::warning(this, tr("错误"), tr("无法加载英文翻译文件！"));
+            ui->comboBox_language->blockSignals(true);
+            ui->comboBox_language->setCurrentIndex(0);
+            ui->comboBox_language->blockSignals(false);
+            return;
+        }
+    }
+
+    // 刷新 UI 文本（适用于 .ui 设计器生成的界面）
+    ui->retranslateUi(this);
+
+    // 重新设置代码中动态设置的文本（如 scan type combo 等已在代码中 setText 的部分）
+    refreshDynamicTexts();
+}
+
+void MainWindow::refreshDynamicTexts()
+{
+    int langIdx = ui->comboBox_language->currentIndex();
+    initLanguageCombobox(langIdx);
+
+    initDataTypeComboBox();
+
+    
+    updateScanTypeComboBox(); // 该函数内部会重新添加项目，使用的是 tr()，会自动翻译
+    updateCountLabels();      // 更新 "Found: ... Shown: ..."
+    refreshUiControls();      // 如果其中有 setText 也要保证使用 tr()
+    // 窗口标题等
+    if (m_attachedToProcess)
+        setWindowTitle(tr("Cheat Engine - %1").arg(ui->label_Process_name->text()));
+    else
+        setWindowTitle(tr("Cheat Engine"));
 }

@@ -71,6 +71,8 @@ private:
 
     void setupUi();
     void initServices();
+
+    void initLanguageCombobox(int currentLangIndex = 0);
     
     void initViews();
     void updateCountLabels();
@@ -142,4 +144,7 @@ private slots:
     void onDoubleClickScanResult(const QModelIndex& index);
     void onScanCompleted();
     void onProgressChanged(int completed, int total);
+
+    void onLanguageChanged(int index);
+    void refreshDynamicTexts();
 };
