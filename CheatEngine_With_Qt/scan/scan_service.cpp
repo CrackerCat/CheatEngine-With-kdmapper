@@ -2,20 +2,22 @@
 #include "scan_service.h"
 #include "scan_result_repository.h"
 #include "scan_result_view_model.h"
+
+#ifndef _DEBUG
 #include "thread_pool.h"
+#endif // !_DEBUG
 
 ScanService::ScanService(QObject* parent)
 	: QObject(parent)
 	, m_engine(std::make_unique<ScanEngine>())
 	, m_repository(std::make_unique<ScanResultRepository>())
+	, m_dataProvider(std::make_unique<ScanDataProvider>(nullptr, nullptr, ScanDataType::Int32))
+	, m_viewModel(std::make_unique<ScanResultViewModel>(m_repository.get(), m_dataProvider.get(), this))
 	, m_refreshTimer(new QTimer(this))
 {
-	// ViewModel 现在通过仓库进行懒加载，不直接操作 Service
-	m_viewModel = new ScanResultViewModel(m_repository.get(), this);
-
 	// 自动刷新：现在只需要让视图重新拉取内存值即可，不需要后台计算
 	connect(m_refreshTimer, &QTimer::timeout, this, [this]() {
-		m_viewModel->onRepositoryReplaced(); // 触发重绘
+		m_viewModel->refreshCurrentValues();  // 触发重绘
 		});
 }
 
@@ -28,6 +30,14 @@ void ScanService::startScan(const ScanRequest& request) {
 
 	stopAutoRefresh();
 	m_cancelling = false;
+
+	if (request.mode == ScanMode::First) {
+		// 对于未知初始值扫描，设置预期行为
+		if (request.firstType == ScanType::UnknownInitial) {
+			m_expectEmptyResults = true;
+		}
+	}
+
 
 	// 进度定时器 (逻辑保持原样)
 	m_progressTimer = new QTimer(this);
@@ -47,7 +57,13 @@ void ScanService::startScan(const ScanRequest& request) {
 		currentResults = m_repository->getResults();
 	}
 
-	GlobalThreadPool::instance().enqueue([this, request,currentResults] {
+#ifdef _DEBUG
+	auto pack = m_engine->execute(request, currentResults);
+	QMetaObject::invokeMethod(this, [this, pack, mode = request.mode] {
+		this->onScanFinished(pack, mode);
+		}, Qt::QueuedConnection);
+#else
+	GlobalThreadPool::instance().enqueue([this, request, currentResults] {
 		auto pack = m_engine->execute(request, currentResults);
 
 		// 任务结束，切回 UI 线程同步仓库与 ViewModel
@@ -55,6 +71,8 @@ void ScanService::startScan(const ScanRequest& request) {
 			this->onScanFinished(pack, mode);
 			}, Qt::QueuedConnection);
 		});
+#endif // DEBUG
+
 }
 
 void ScanService::cancel()
@@ -80,17 +98,13 @@ bool ScanService::isScanning() const
 
 bool ScanService::hasResults() const
 {
-	return m_repository->resultCount() > 0 ;
+	return m_repository->getResultCount() > 0 || (m_expectEmptyResults && m_scanning.load());
 }
 
 int ScanService::totalResults() const
 {
-	return static_cast<int>(m_repository->resultCount());
-}
-
-ScanResultViewModel* ScanService::resultModel() const
-{
-	return m_viewModel;
+	return static_cast<int>(m_repository->getResultCount());
+	//return m_engine->totalItems();
 }
 
 void ScanService::startAutoRefresh(int intervalMs)
@@ -107,7 +121,8 @@ void ScanService::stopAutoRefresh()
 void ScanService::clear()
 {
 	stopAutoRefresh();
-	m_repository->replaceAllResults({});
+	m_repository->clear();
+	m_engine->clear();
 	m_viewModel->onRepositoryReplaced();
 }
 
@@ -120,7 +135,7 @@ void ScanService::reset()
 }
 
 
-void ScanService::onScanFinished(ScanEngine::ResultPack pack, ScanMode mode) {
+void ScanService::onScanFinished(ScanEngine::ScanReport pack, ScanMode mode) {
 	if (m_progressTimer) { m_progressTimer->stop(); m_progressTimer->deleteLater(); }
 
 	// 1. 结果分发：将自适应缓存中的数据存入仓库
@@ -128,8 +143,10 @@ void ScanService::onScanFinished(ScanEngine::ResultPack pack, ScanMode mode) {
 		m_repository->replaceAllResults(pack.results->readChunk(0, pack.results->total_size()));
 	}
 
-	// 2. 快照同步：同步最新的快照对象，供 ViewModel 懒加载显示
-	m_repository->setSnapshots(m_engine->getFirstSnapshot(), m_engine->getPreviousSnapshot());
+	//m_repository->setMetadata(report.metadata);
+	m_dataProvider->updateSnapshots(pack.firstSnapshot, pack.previousSnapshot);
+	m_dataProvider->setDisplayType(pack.dataType);
+	m_viewModel->setDisplayType(pack.dataType);
 
 	m_viewModel->onRepositoryReplaced();
 	m_scanning = false;

@@ -38,21 +38,18 @@
 //│ read()                   │(提供内存访问结构接口，静态工具)
 //└─────────────┘
 
-
-
-
-
-
 #pragma once
+#include "scan_result_view_model.h"
+#include "scan_data_stream_define.h"
+#include "scan_data_provider.h"
+#include "scan_result_repository.h"
+#include "scan_engine.h"
+
 #include <QObject>
 #include <QTimer>
 #include <atomic>
 #include <memory>
-#include "scan_request_result_type_define.h"
-#include "scan_engine.h"
 
-class ScanResultRepository;
-class ScanResultViewModel;
 
 class ScanService : public QObject {
 	Q_OBJECT
@@ -68,7 +65,8 @@ public:
 	bool isScanning() const;
 	bool hasResults() const;
 	int  totalResults() const;
-	ScanResultViewModel* resultModel() const;
+
+	ScanResultViewModel* resultModel() const { return m_viewModel.get(); }
 
 	// 自动刷新（现在仅负责触发 UI 重绘）
 	void startAutoRefresh(int intervalMs = 200);
@@ -82,17 +80,22 @@ signals:
 	void progressChanged(int completed, int total);
 
 private:
-	void onScanFinished(ScanEngine::ResultPack pack, ScanMode mode);
+	void onScanFinished(ScanEngine::ScanReport pack, ScanMode mode);
 
+	std::unique_ptr<ScanDataProvider>      m_dataProvider;
 	std::unique_ptr<ScanEngine>            m_engine;
 	std::unique_ptr<ScanResultRepository>  m_repository;
-	ScanResultViewModel* m_viewModel;
+	std::unique_ptr<ScanResultViewModel>   m_viewModel;
+
 
 	QTimer* m_refreshTimer;
 	QTimer* m_progressTimer = nullptr;
 
 	std::atomic<bool> m_scanning{ false };
 	std::atomic<bool> m_cancelling{ false };
+
+	std::atomic<bool> m_expectEmptyResults{ false }; //未知的初始值使用
+
 
 	// 记录首次扫描的快照路径和索引
 	std::string m_firstPath;

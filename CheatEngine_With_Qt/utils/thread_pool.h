@@ -90,8 +90,9 @@ private:
 class GlobalThreadPool {
 public:
     static ThreadPool& instance() {
-        // 使用硬件核心数初始化，确保最优性能并防止线程爆炸
+         // 使用硬件核心数初始化，确保最优性能并防止线程爆炸
         static ThreadPool pool(std::thread::hardware_concurrency());
+        //static ThreadPool pool(1);
         return pool;
     }
 };

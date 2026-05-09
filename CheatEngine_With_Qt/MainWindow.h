@@ -4,7 +4,7 @@
 #include <QTableView>
 #include <atomic>
 #include <memory>
-#include "scan_request_result_type_define.h"
+#include "scan_data_stream_define.h"
 
 namespace Ui {
     class CheatEngine_With_QtClass;
@@ -82,10 +82,6 @@ private:
 
     void connectSignals();
     void initDataTypeComboBox();
-
-    // É¨ÃèÁ÷³Ì
-    //ScanRequest buildFirstScanRequest() const;
-    //ScanRequest buildNextScanRequest() const;
 
     ScanRequest buildScanRequest(ScanMode mode) const;
     

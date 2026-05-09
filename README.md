@@ -62,42 +62,42 @@ C++代码编译模式MDd、和MD (注意不要使用 MTd、MT的编译模式，会和Qt库冲突，导致异常
 
 
     ┌───────────────────────────────────────────┐
-    │       上层(MainWindow/其他)                │
+    │       上层(mainwindow/其他)                │
     │                                           │
-    │只依赖 ScanService 和 ScanResultViewModel   │
+    │只依赖 scanservice 和 scanresultviewmodel   │
     └────────────────────┬──────────────────────┘
                          │
                          ▼
                ┌──────────────────┐
-               │   ScanService    │(门面 + 线程调度)
-               │                  │
-               │ - startScan()    │
-               │ - cancel()       │
-               │ - resultModel()  │─── > ScanResultViewModel
-               │ - isScanning()   │
+               │   scanservice                      │(门面 + 线程调度)
+               │                                    │
+               │ - startscan()                      │
+               │ - cancel()                         │
+               │ - resultmodel()                    │─── > scanresultviewmodel
+               │ - isscanning()                     │
                └────────┬─────────┘
                         │ 内部持有
         ┌───────────────┼────────────────────────┐
 返回结果 │               │                        │
  纯计算  ▼               ▼                        ▼
 ┌─────────────┐  ┌──────────────────────┐  ┌─────────────────────┐
-│ ScanEngine  │  │ ScanResultRepository │  │ ScanResultViewModel │
-│  excute()   │  │   replaceAllResults()│  │    data()           │ 格式化显示
-│  cancel()   │  │   setSnapshots()     │  │ onDeltaApplied()    │ 
-│             │  │    resultCount()     │  │                     │
+│ scanengine               │  │ scanresultrepository │  │ scanresultviewmodel │
+│  excute()                │  │   replaceallresults()│  │    data()           │ 格式化显示
+│  cancel()                │  │   setsnapshots()     │  │ ondeltaapplied()    │ 
+│                          │  │    resultcount()     │  │                     │
 └─────────────┘  └──────────────────────┘  └─────────────────────┘
        │                 线程安全存储                               
        ▼(仅使用)           快照、增量更新
 ┌───────────────┐
-│ProcessManage  │
-│ memory()      │(进程抽象层，读取进程内存，静态工具)
+│processmanage                 │
+│ memory()                     │(进程抽象层，读取进程内存，静态工具)
 └───────────────┘
        │
        ▼(抽象接口使用)
 ┌────────────────┐
-│IMemoryAccessor │
-│                │
-│ read()         │(提供内存访问结构接口，静态工具)
+│imemoryaccessor                 │
+│                                │
+│ read()                          (提供内存访问结构接口，静态工具)
 └────────────────┘
 
 

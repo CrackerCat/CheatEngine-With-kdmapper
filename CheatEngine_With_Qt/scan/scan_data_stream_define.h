@@ -139,6 +139,7 @@ struct ScanRequest {
     bool onlyWritable;
     bool includeExecutable;
     bool percentMode = false;
+    bool OnlySimpleValue = false;
 
     std::shared_ptr<const std::vector<ScanResult>> prevResults = nullptr;
 };

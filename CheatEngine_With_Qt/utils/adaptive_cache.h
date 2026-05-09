@@ -12,7 +12,7 @@
 #include <atomic>
 #include <thread>
 
-#define THEAD_LOCAL_SIZE  50LL * 1024  //50MB
+#define THEAD_LOCAL_SIZE  50LL * 1024 *1024  //50MB
 
 
 /// @brief 泛型自适应缓存容器（子缓存单元）

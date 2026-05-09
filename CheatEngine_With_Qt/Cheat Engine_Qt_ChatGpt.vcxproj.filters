@@ -92,9 +92,6 @@
     <ClCompile Include="scan\scan_engine.cpp">
       <Filter>new_scan_framework</Filter>
     </ClCompile>
-    <ClCompile Include="scan\scan_result_formatter.cpp">
-      <Filter>new_scan_framework</Filter>
-    </ClCompile>
     <ClCompile Include="scan\scan_result_repository.cpp">
       <Filter>new_scan_framework</Filter>
     </ClCompile>
@@ -112,6 +109,12 @@
     </ClCompile>
     <ClCompile Include="language_translations\translator_manager.cpp">
       <Filter>utils\language</Filter>
+    </ClCompile>
+    <ClCompile Include="scan\scan_result_formatter.cpp">
+      <Filter>utils</Filter>
+    </ClCompile>
+    <ClCompile Include="scan\scan_data_provider.cpp">
+      <Filter>new_scan_framework</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -178,9 +181,6 @@
     <ClInclude Include="scan\scan_engine.h">
       <Filter>new_scan_framework</Filter>
     </ClInclude>
-    <ClInclude Include="scan\scan_result_formatter.h">
-      <Filter>new_scan_framework</Filter>
-    </ClInclude>
     <ClInclude Include="scan\scan_result_repository.h">
       <Filter>new_scan_framework</Filter>
     </ClInclude>
@@ -202,11 +202,20 @@
     <ClInclude Include="scan\scan_simd_accelerate.h">
       <Filter>new_scan_framework</Filter>
     </ClInclude>
-    <ClInclude Include="type_define\scan_request_result_type_define.h">
-      <Filter>new_scan_framework</Filter>
-    </ClInclude>
     <ClInclude Include="x64\Debug\qt\uic\ui_CheatEngine_With_Qt.h">
       <Filter>Form Files</Filter>
+    </ClInclude>
+    <ClInclude Include="scan\scan_data_stream_define.h">
+      <Filter>new_scan_framework</Filter>
+    </ClInclude>
+    <ClInclude Include="scan\scan_result_formatter.h">
+      <Filter>utils</Filter>
+    </ClInclude>
+    <ClInclude Include="scan\scan_data_provider.h">
+      <Filter>new_scan_framework</Filter>
+    </ClInclude>
+    <ClInclude Include="scan\value_provider_interface.h">
+      <Filter>new_scan_framework</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

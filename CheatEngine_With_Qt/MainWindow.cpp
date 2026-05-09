@@ -9,7 +9,7 @@
 #include "process_manager.h"
 #include "scan_service.h"
 #include "scan_result_view_model.h"
-#include "scan_request_result_type_define.h"
+#include "scan_data_stream_define.h"
 #include "translator_manager.h"
 
 #include <QTimer>
@@ -33,8 +33,8 @@ MainWindow::MainWindow(QWidget* parent)
     initViews();
     initTimers();
     initDataTypeComboBox();
-    connectSignals();
     updateScanTypeComboBox();
+    connectSignals();
     refreshUiControls();
 }
 
@@ -278,7 +278,6 @@ void MainWindow::onOpenProcess()
     auto p = dlg.selectedProcess();
 
     m_scanService->cancel();
-    m_scanService->stopAutoRefresh();
     m_scanService->clear();       
 
     ProcessManager::instance().detach();
@@ -310,7 +309,10 @@ void MainWindow::onOpenProcess()
         QMessageBox::warning(this, tr("错误"), tr("附加进程失败."));
     }
 
-    refreshUiControls();
+    updateCountLabels();
+    initDataTypeComboBox();
+    updateScanTypeComboBox();
+    //refreshUiControls();
 }
 
 // ==================== 构建扫描请求（保留原解析逻辑） ====================
@@ -465,7 +467,7 @@ void MainWindow::onFirstScan()
         m_scanService->clear();
         m_scanService->stopAutoRefresh();
         updateScanTypeComboBox();
-        refreshUiControls();
+        //refreshUiControls();
         updateCountLabels();
         return; 
     }
@@ -543,6 +545,27 @@ ScanRequest MainWindow::buildScanRequest(ScanMode mode) const
     else {
         req.alignment = 1;
     }
+
+    // ===== 模块过滤 =====
+    const QString selectedModule = ui->comboBox_process_module_List->currentText();
+    if (selectedModule != tr("全部模块")) {
+        const auto& modules = ProcessManager::instance().modules();
+        for (const auto& mod : modules) {
+            if (QString::fromStdString(mod.name) == selectedModule) {
+                req.moduleBase = mod.base;
+                req.moduleSize = mod.size;
+                break;
+            }
+        }
+    }
+
+    // ===== 内存属性过滤 =====
+    req.onlyWritable = ui->checkBox_able_to_write->isChecked();
+    req.includeExecutable = ui->checkBox_able_to_execute->isChecked();
+
+
+    // ===== 其他 UI 选项（已有但未赋值） =====
+    req.percentMode = ui->checkBox_percent->isChecked();
 
     // 根据模式填充参数
     if (req.dataType == ScanDataType::Structure) {
@@ -1227,7 +1250,7 @@ void MainWindow::refreshDynamicTexts()
     
     updateScanTypeComboBox(); // 该函数内部会重新添加项目，使用的是 tr()，会自动翻译
     updateCountLabels();      // 更新 "Found: ... Shown: ..."
-    refreshUiControls();      // 如果其中有 setText 也要保证使用 tr()
+    //refreshUiControls();      // 如果其中有 setText 也要保证使用 tr()
     // 窗口标题等
     if (m_attachedToProcess)
         setWindowTitle(tr("Cheat Engine - %1").arg(ui->label_Process_name->text()));
