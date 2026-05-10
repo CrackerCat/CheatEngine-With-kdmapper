@@ -4,7 +4,7 @@
 #include <algorithm>
 
 
-ScanEngine::ScanEngine(ProcessSnapshotManager* processSnapshotManager):
+ScanEngine::ScanEngine(ProcessMemorySnapshotManager* processSnapshotManager):
 	m_processSnapshotManager(processSnapshotManager) 
 {
 
@@ -35,9 +35,9 @@ void ScanEngine::dispatchScan(const ScanRequest& request, const std::vector<Scan
 	std::shared_ptr<AdaptiveCachePool<ScanResult>> outCache)
 {
 	auto regions = ProcessManager::instance().getMemoryRegions(request);
-	auto currentSnap = std::shared_ptr<ScanSnapshot>(m_processSnapshotManager->createSnapshot(regions));
-	auto prevSnap = m_processSnapshotManager->getPrevious();
-	auto firstSnap = m_processSnapshotManager->getFirst();
+	auto currentSnap = std::shared_ptr<IProcessMemorySnapshot>(m_processSnapshotManager->createSnapshot(regions));
+	auto prevSnap = m_processSnapshotManager->getPreviousProcessMemeorySnapshot();
+	auto firstSnap = m_processSnapshotManager->getFirstProcessMemeorySnapshot();
 
 	// 用于等待所有线程完成的期值列表
 	std::vector<std::future<void>> futures;
@@ -85,7 +85,7 @@ void ScanEngine::dispatchScan(const ScanRequest& request, const std::vector<Scan
 
 template <typename T>
 void ScanEngine::taskFirstScan(const ScanRequest& request, MemoryRegion region,
-	std::shared_ptr<ScanSnapshot> firstSnapshot,
+	std::shared_ptr<IProcessMemorySnapshot> firstSnapshot,
 	std::shared_ptr<AdaptiveCachePool<ScanResult>> outCache)
 {
 	if (m_cancel.load()) return;
@@ -176,8 +176,8 @@ void ScanEngine::taskFirstScan(const ScanRequest& request, MemoryRegion region,
 template <typename T>
 void ScanEngine::taskNextScan(const ScanRequest& request,
 	const std::vector<ScanResult>& oldBatch,
-	std::shared_ptr<ScanSnapshot> currentSnapshot,
-	std::shared_ptr<ScanSnapshot> previousSnapshot,
+	std::shared_ptr<IProcessMemorySnapshot> currentSnapshot,
+	std::shared_ptr<IProcessMemorySnapshot> previousSnapshot,
 	std::shared_ptr<AdaptiveCachePool<ScanResult>> outCache)
 {
 	std::vector<ScanResult> survivors;

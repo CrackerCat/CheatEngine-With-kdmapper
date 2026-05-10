@@ -43,7 +43,7 @@
 #include "scan_data_stream_define.h"
 #include "scan_data_provider.h"
 #include "scan_result_repository.h"
-#include "scan_snapshot_manager.h"
+#include "process_memory_snapshot_manager.h"
 #include "scan_engine.h"
 
 #include <QObject>
@@ -83,7 +83,7 @@ signals:
 private:
 	void onScanFinished(ScanEngine::ScanReport pack, ScanMode mode);
 
-	std::unique_ptr <ProcessSnapshotManager>  m_processSnapshotManager;
+	ProcessMemorySnapshotManager*             m_processSnapshotManager;
 	std::unique_ptr<ScanDataProvider>         m_dataProvider;
 	std::unique_ptr<ScanEngine>               m_engine;
 	std::unique_ptr<ScanResultRepository>     m_repository;

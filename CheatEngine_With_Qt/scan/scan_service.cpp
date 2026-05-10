@@ -2,6 +2,7 @@
 #include "scan_service.h"
 #include "scan_result_repository.h"
 #include "scan_result_view_model.h"
+#include "process_manager.h"
 
 #ifndef _DEBUG
 #include "thread_pool.h"
@@ -9,14 +10,16 @@
 
 ScanService::ScanService(QObject* parent)
 	: QObject(parent)
-	, m_processSnapshotManager(std::make_unique<ProcessSnapshotManager>())
-	, m_engine(std::make_unique<ScanEngine>(m_processSnapshotManager.get()))
+	, m_processSnapshotManager(ProcessManager::instance().getProcessMemorySnapshotManager())
+	, m_engine(std::make_unique<ScanEngine>(m_processSnapshotManager))
 	, m_repository(std::make_unique<ScanResultRepository>())
-	, m_dataProvider(std::make_unique<ScanDataProvider>(m_processSnapshotManager.get(), ScanDataType::Int32))
+	, m_dataProvider(std::make_unique<ScanDataProvider>(m_processSnapshotManager, ScanDataType::Int32))
 	, m_viewModel(std::make_unique<ScanResultViewModel>(m_repository.get(), m_dataProvider.get(), this))
 	, m_refreshTimer(new QTimer(this))
 {
 	// 自动刷新：现在只需要让视图重新拉取内存值即可，不需要后台计算
+
+
 	connect(m_refreshTimer, &QTimer::timeout, this, [this]() {
 		m_viewModel->refreshCurrentValues();  // 触发重绘
 		});
@@ -127,9 +130,22 @@ void ScanService::stopAutoRefresh()
 
 void ScanService::clear()
 {
+	// 1. 停止所有正在进行的扫描和刷新
+	cancel();
 	stopAutoRefresh();
+
+	// 2. 清理核心仓库
 	m_repository->clear();
+
+	// 3. 清理快照管理器（物理文件清理的核心）
+	if (m_processSnapshotManager) {
+		m_processSnapshotManager->clear();
+	}
+
+	// 4. 重置引擎状态（原子变量重置）
 	m_engine->clear();
+
+	// 5. 通知 UI
 	m_viewModel->onRepositoryReplaced();
 }
 

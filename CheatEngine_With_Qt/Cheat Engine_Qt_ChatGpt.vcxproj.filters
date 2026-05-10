@@ -54,9 +54,6 @@
     </QtMoc>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="process_manager.cpp">
-      <Filter>process</Filter>
-    </ClCompile>
     <ClCompile Include="Factory\memory_accessor_factory.cpp">
       <Filter>Factory</Filter>
     </ClCompile>
@@ -101,23 +98,26 @@
     <ClCompile Include="scan\scan_service.cpp">
       <Filter>new_scan_framework</Filter>
     </ClCompile>
-    <ClCompile Include="scan\scan_snapshot.cpp">
-      <Filter>new_scan_framework</Filter>
-    </ClCompile>
-    <ClCompile Include="scan\scan_snapshot_manager.cpp">
-      <Filter>new_scan_framework</Filter>
-    </ClCompile>
     <ClCompile Include="language_translations\translator_manager.cpp">
       <Filter>utils\language</Filter>
     </ClCompile>
     <ClCompile Include="scan\scan_data_provider.cpp">
       <Filter>new_scan_framework</Filter>
     </ClCompile>
+    <ClCompile Include="process\process_manager.cpp">
+      <Filter>process</Filter>
+    </ClCompile>
+    <ClCompile Include="process\process_memory_snapshot_manager.cpp">
+      <Filter>process</Filter>
+    </ClCompile>
+    <ClCompile Include="Factory\process_memory_snapshot_factory.cpp">
+      <Filter>Factory</Filter>
+    </ClCompile>
+    <ClCompile Include="Implement\Win_API\win32_process_memory_snapshot.cpp">
+      <Filter>implement\Win_API</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="process_manager.h">
-      <Filter>process</Filter>
-    </ClInclude>
     <ClInclude Include="type_define\address_item.h">
       <Filter>struct_data_type</Filter>
     </ClInclude>
@@ -190,12 +190,6 @@
     <ClInclude Include="utils\thread_pool.h">
       <Filter>utils</Filter>
     </ClInclude>
-    <ClInclude Include="scan\scan_snapshot.h">
-      <Filter>new_scan_framework</Filter>
-    </ClInclude>
-    <ClInclude Include="scan\scan_snapshot_manager.h">
-      <Filter>new_scan_framework</Filter>
-    </ClInclude>
     <ClInclude Include="scan\scan_simd_accelerate.h">
       <Filter>new_scan_framework</Filter>
     </ClInclude>
@@ -208,11 +202,26 @@
     <ClInclude Include="scan\scan_data_provider.h">
       <Filter>new_scan_framework</Filter>
     </ClInclude>
-    <ClInclude Include="scan\value_provider_interface.h">
-      <Filter>new_scan_framework</Filter>
-    </ClInclude>
     <ClInclude Include="utils\encoding_formatter.h">
       <Filter>utils</Filter>
+    </ClInclude>
+    <ClInclude Include="process\process_manager.h">
+      <Filter>process</Filter>
+    </ClInclude>
+    <ClInclude Include="process\process_memory_snapshot_manager.h">
+      <Filter>process</Filter>
+    </ClInclude>
+    <ClInclude Include="Factory\process_memory_snapshot_factory.h">
+      <Filter>Factory</Filter>
+    </ClInclude>
+    <ClInclude Include="interface\iscan_value_provider.h">
+      <Filter>Interface</Filter>
+    </ClInclude>
+    <ClInclude Include="interface\iprocess_memory_snapshot.h">
+      <Filter>Interface</Filter>
+    </ClInclude>
+    <ClInclude Include="Implement\Win_API\win32_process_memory_snapshot.h">
+      <Filter>implement\Win_API</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

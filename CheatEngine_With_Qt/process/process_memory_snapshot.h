@@ -14,10 +14,10 @@
 #include <windows.h>
 #endif
 
-class ScanSnapshot {
+class ProcessMemorySnapshot {
 public:
-    ScanSnapshot(const std::string& path, std::map<uint64_t, size_t> index);
-    ~ScanSnapshot();
+    ProcessMemorySnapshot(const std::string& path, std::map<uint64_t, size_t> index);
+    ~ProcessMemorySnapshot();
 
     // 模板函数必须在头文件中实现，以避免 LNK2019 错误
     template <typename T>

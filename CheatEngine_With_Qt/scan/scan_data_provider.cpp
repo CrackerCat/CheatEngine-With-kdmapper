@@ -5,7 +5,7 @@
 #include <string>
 
 ScanDataProvider::ScanDataProvider(
-	ProcessSnapshotManager* processSnapshotManager,
+	ProcessMemorySnapshotManager* processSnapshotManager,
 	ScanDataType type)
 	: m_displayType(type)
 	, m_processSnapshotManager(processSnapshotManager)
@@ -26,11 +26,11 @@ std::string ScanDataProvider::getCurrentValue(uint64_t address, ScanDataType typ
 }
 
 std::string ScanDataProvider::getPreviousValue(uint64_t address, ScanDataType type) const {
-	return readValueFromSnapshot(address, type, m_processSnapshotManager->getPrevious());
+	return readValueFromSnapshot(address, type, m_processSnapshotManager->getPreviousProcessMemeorySnapshot());
 }
 
 std::string ScanDataProvider::getFirstValue(uint64_t address, ScanDataType type) const {
-	return readValueFromSnapshot(address, type, m_processSnapshotManager->getFirst());
+	return readValueFromSnapshot(address, type, m_processSnapshotManager->getFirstProcessMemeorySnapshot());
 }
 
 std::string ScanDataProvider::getAddressDisplay(uint64_t address) const {
@@ -42,7 +42,7 @@ std::string ScanDataProvider::getAddressDisplay(uint64_t address) const {
 }
 
 std::string ScanDataProvider::readValueFromSnapshot(uint64_t address, ScanDataType type,
-	const std::shared_ptr<ScanSnapshot>& snapshot) const {
+	const std::shared_ptr<IProcessMemorySnapshot>& snapshot) const {
 	if (!snapshot) return "---";
 	size_t size = scanDataTypeSize(type);
 	if (size == 0) {

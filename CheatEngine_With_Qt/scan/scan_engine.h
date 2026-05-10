@@ -1,9 +1,10 @@
 ﻿#pragma once
 #include "scan_data_stream_define.h"
 #include "adaptive_cache.h"
-#include "scan_snapshot_manager.h"
+#include "process_memory_snapshot_manager.h"
 #include "scan_simd_accelerate.h"
 #include "scan_result_repository.h"
+#include "process_manager.h"
 
 #include <atomic>
 #include <memory>
@@ -23,7 +24,7 @@ public:
 	};
 
 	ScanEngine() = default;
-	ScanEngine(ProcessSnapshotManager* processSnapshotManager);
+	ScanEngine(ProcessMemorySnapshotManager* processSnapshotManager);
 
 	~ScanEngine() = default;
 
@@ -79,14 +80,14 @@ private:
 
 	template <typename T>
 	void taskFirstScan(const ScanRequest& req, MemoryRegion region,
-		std::shared_ptr<ScanSnapshot> current,
+		std::shared_ptr<IProcessMemorySnapshot> current,
 		std::shared_ptr<AdaptiveCachePool<ScanResult>> outCache);
 
 	template <typename T>
 	void taskNextScan(const ScanRequest& req, 
 		const std::vector<ScanResult>& oldBatch,
-        std::shared_ptr<ScanSnapshot> currentSnapshot,
-        std::shared_ptr<ScanSnapshot> previousSnapshot,
+        std::shared_ptr<IProcessMemorySnapshot> currentSnapshot,
+        std::shared_ptr<IProcessMemorySnapshot> previousSnapshot,
 		std::shared_ptr<AdaptiveCachePool<ScanResult>> outCache);
 
 	// 特殊类型匹配算法
@@ -100,5 +101,5 @@ private:
 	std::atomic<int>  m_totalItems{ 0 };
 
 	std::atomic<int> m_potential_Address{ 0 };
-	ProcessSnapshotManager* m_processSnapshotManager;
+	ProcessMemorySnapshotManager* m_processSnapshotManager;
 };

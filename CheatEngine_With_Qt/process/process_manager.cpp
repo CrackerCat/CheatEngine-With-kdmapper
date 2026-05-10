@@ -3,6 +3,8 @@
 #include "module_enumerator_factory.h"
 #include "memory_region_enumerator_factory.h"
 #include "process_enumerator_factory.h"
+#include "process_memory_snapshot_factory.h"
+
 #include <algorithm>
 
 ProcessManager& ProcessManager::instance()
@@ -63,6 +65,7 @@ void ProcessManager::createBackends()
 	m_moduleEnumerator = ModuleEnumeratorFactory::create(m_backend);
 	m_regionEnumerator = MemoryRegionEnumeratorFactory::create(m_backend);
 	m_processEnumerator = ProcessEnumeratorFactory::create(m_backend);
+	m_processMemorySnapshotManager = std::make_unique<ProcessMemorySnapshotManager>(m_backend);
 }
 
 bool ProcessManager::attach(const ProcessInfo& process)
@@ -90,6 +93,9 @@ void ProcessManager::detach()
 	if (m_accessor)
 		m_accessor->detach();
 
+	if (m_processMemorySnapshotManager) {
+		m_processMemorySnapshotManager->clear();
+	}
 
 	m_accessor.reset();
 	m_moduleEnumerator.reset();
@@ -98,8 +104,6 @@ void ProcessManager::detach()
 	m_pid = 0;
 	m_modules.clear();
 }
-
-
 
 
 IMemoryAccessor* ProcessManager::memory_naked() {

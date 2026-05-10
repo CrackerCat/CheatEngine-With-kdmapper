@@ -1,7 +1,7 @@
 #include "scan_result_view_model.h"
 #include "scan_result_repository.h"
 #include "encoding_formatter.h"
-#include "scan_snapshot.h"
+#include "process_memory_snapshot.h"
 #include <QBrush>
 #include <QColor>
 #include <QString>

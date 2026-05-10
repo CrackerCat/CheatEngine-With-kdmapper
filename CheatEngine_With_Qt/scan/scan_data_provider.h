@@ -1,15 +1,15 @@
 // scan_data_provider.h
 #pragma once
-#include "value_provider_interface.h"
-#include "scan_snapshot_manager.h"
-#include "scan_snapshot.h"
+#include "iscan_value_provider.h"
+#include "process_memory_snapshot_manager.h"
+#include "process_memory_snapshot.h"
 #include <memory>
 #include <string>
 
 class ScanDataProvider : public IScanValueProvider {
 public:
 	// 构造函数接收快照（可为 nullptr）和当前显示类型
-	ScanDataProvider(ProcessSnapshotManager* processSnapshotManager,
+	ScanDataProvider(ProcessMemorySnapshotManager* processSnapshotManager,
 		ScanDataType displayType);
 
 	void setDisplayType(ScanDataType type) { m_displayType = type;}
@@ -24,10 +24,10 @@ public:
 	bool isModuleBase(uint64_t address) const override;
 
 private:
-	std::string readValueFromSnapshot(uint64_t address, ScanDataType type,const std::shared_ptr<ScanSnapshot>& snapshot) const;
+	std::string readValueFromSnapshot(uint64_t address, ScanDataType type,const std::shared_ptr<IProcessMemorySnapshot>& snapshot) const;
 
 	std::string readCurrentFromMemory(uint64_t address, ScanDataType type) const;
 
-	ProcessSnapshotManager* m_processSnapshotManager; // 持有管理快照访问的指针（不拥有所有权）
+	ProcessMemorySnapshotManager* m_processSnapshotManager; // 持有管理快照访问的指针（不拥有所有权）
 	ScanDataType m_displayType;  // 用于格式化，但接口允许指定 type，优先使用传入 type
 };

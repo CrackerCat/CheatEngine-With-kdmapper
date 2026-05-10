@@ -1,15 +1,15 @@
-#include "scan_snapshot.h"
+#include "process_memory_snapshot.h"
 #include <algorithm>
 #include <iostream>
 #include <cstring>
 
-ScanSnapshot::ScanSnapshot(const std::string& path, std::map<uint64_t, size_t> index)
+ProcessMemorySnapshot::ProcessMemorySnapshot(const std::string& path, std::map<uint64_t, size_t> index)
     : m_path(path), m_index(std::move(index))
 {
     initMapping();
 }
 
-ScanSnapshot::~ScanSnapshot() {
+ProcessMemorySnapshot::~ProcessMemorySnapshot() {
 #ifdef _WIN32
     if (m_pBuffer) UnmapViewOfFile(m_pBuffer);
     if (m_hMapping) CloseHandle(m_hMapping);
@@ -17,7 +17,7 @@ ScanSnapshot::~ScanSnapshot() {
 #endif
 }
 
-void ScanSnapshot::initMapping() {
+void ProcessMemorySnapshot::initMapping() {
 #ifdef _WIN32
     m_hFile = CreateFileA(m_path.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     if (m_hFile == (HANDLE)(LONG_PTR)-1) return;
@@ -33,7 +33,7 @@ void ScanSnapshot::initMapping() {
 #endif
 }
 
-bool ScanSnapshot::readData(uint64_t address, uint8_t* buffer, size_t size) const {
+bool ProcessMemorySnapshot::readData(uint64_t address, uint8_t* buffer, size_t size) const {
     // 1. ¼ÆËãÎÄ¼þÆ«ÒÆ
     auto it = m_index.upper_bound(address);
     if (it == m_index.begin()) return false;

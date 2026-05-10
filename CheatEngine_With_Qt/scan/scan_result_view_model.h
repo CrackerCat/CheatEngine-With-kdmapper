@@ -1,7 +1,7 @@
 #pragma once
 #include <QAbstractTableModel>
 #include "scan_data_stream_define.h"
-#include "value_provider_interface.h"
+#include "iscan_value_provider.h"
 #include <mutex>
 
 class ScanResultRepository;

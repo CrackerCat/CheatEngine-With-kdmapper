@@ -46,10 +46,10 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
-    <IncludePath>$(ProjectDir)\Factory;$(ProjectDir)\Implement\Win_API;$(ProjectDir)\interface;$(ProjectDir)\type_define;$(ProjectDir)\scan;$(ProjectDir)\language_translations;$(ProjectDir)\utils;$(IncludePath)</IncludePath>
+    <IncludePath>$(ProjectDir)language_translations;$(ProjectDir)type_define;$(ProjectDir)utils;$(ProjectDir)process;$(ProjectDir)scan;$(ProjectDir)interface;$(ProjectDir)Implement;$(ProjectDir)Factory;$(ProjectDir)Implement\Win_API</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>$(ProjectDir)\interface;$(ProjectDir)\Implement\Win_API;$(ProjectDir)\Factory;$(ProjectDir)\language_translations;$(ProjectDir)\scan;$(ProjectDir)\utils;$(ProjectDir)\type_define;$(IncludePath)</IncludePath>
+    <IncludePath>$(ProjectDir)language_translations;$(ProjectDir)type_define;$(ProjectDir)utils;$(ProjectDir)process;$(ProjectDir)scan;$(ProjectDir)interface;$(ProjectDir)Implement;$(ProjectDir)Factory;$(ProjectDir)Implement\Win_API</IncludePath>
   </PropertyGroup>
   <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <QtInstall>6.8.2_msvc2022_64</QtInstall>
@@ -79,6 +79,7 @@
     <ClCompile>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <CallingConvention>FastCall</CallingConvention>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -102,21 +103,22 @@
     <ClCompile Include="Factory\memory_region_enumerator_factory.cpp" />
     <ClCompile Include="Factory\module_enumerator_factory.cpp" />
     <ClCompile Include="Factory\process_enumerator_factory.cpp" />
+    <ClCompile Include="Factory\process_memory_snapshot_factory.cpp" />
     <ClCompile Include="Implement\Win_API\win32_memory_accessor.cpp" />
     <ClCompile Include="Implement\Win_API\win32_memory_region_enumerator.cpp" />
     <ClCompile Include="Implement\Win_API\win32_module_enumerator.cpp" />
     <ClCompile Include="Implement\Win_API\win32_process_enumerator.cpp" />
+    <ClCompile Include="Implement\Win_API\win32_process_memory_snapshot.cpp" />
     <ClCompile Include="language_translations\translator_manager.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="process\process_manager.cpp" />
+    <ClCompile Include="process\process_memory_snapshot_manager.cpp" />
     <ClCompile Include="process_dialog.cpp" />
-    <ClCompile Include="process_manager.cpp" />
     <ClCompile Include="scan\scan_data_provider.cpp" />
     <ClCompile Include="scan\scan_engine.cpp" />
     <ClCompile Include="scan\scan_result_repository.cpp" />
     <ClCompile Include="scan\scan_result_view_model.cpp" />
     <ClCompile Include="scan\scan_service.cpp" />
-    <ClCompile Include="scan\scan_snapshot.cpp" />
-    <ClCompile Include="scan\scan_snapshot_manager.cpp" />
     <QtMoc Include="MainWindow.h" />
     <ClCompile Include="MainWindow.cpp" />
   </ItemGroup>
@@ -125,6 +127,7 @@
     <ClInclude Include="Factory\memory_region_enumerator_factory.h" />
     <ClInclude Include="Factory\module_enumerator_factory.h" />
     <ClInclude Include="Factory\process_enumerator_factory.h" />
+    <ClInclude Include="Factory\process_memory_snapshot_factory.h" />
     <ClInclude Include="IAddressSpace.h" />
     <ClInclude Include="IDriverLoader.h" />
     <ClInclude Include="IKernelObjectManager.h" />
@@ -132,19 +135,21 @@
     <ClInclude Include="Implement\Win_API\win32_memory_region_enumerator.h" />
     <ClInclude Include="Implement\Win_API\win32_module_enumerator.h" />
     <ClInclude Include="Implement\Win_API\win32_process_enumerator.h" />
+    <ClInclude Include="Implement\Win_API\win32_process_memory_snapshot.h" />
     <ClInclude Include="interface\imemory_accessor.h" />
     <ClInclude Include="interface\imemory_region_enumerator.h" />
     <ClInclude Include="interface\imodule_enumerator.h" />
     <ClInclude Include="interface\iprocess_enumerator.h" />
     <QtMoc Include="language_translations\translator_manager.h" />
+    <ClInclude Include="interface\iprocess_memory_snapshot.h" />
+    <ClInclude Include="interface\iscan_value_provider.h" />
+    <ClInclude Include="process\process_manager.h" />
+    <ClInclude Include="process\process_memory_snapshot_manager.h" />
     <ClInclude Include="scan\scan_data_provider.h" />
     <ClInclude Include="scan\scan_data_stream_define.h" />
     <ClInclude Include="scan\scan_engine.h" />
     <ClInclude Include="scan\scan_result_repository.h" />
     <ClInclude Include="scan\scan_simd_accelerate.h" />
-    <ClInclude Include="scan\scan_snapshot.h" />
-    <ClInclude Include="scan\scan_snapshot_manager.h" />
-    <ClInclude Include="scan\value_provider_interface.h" />
     <ClInclude Include="utils\adaptive_cache.h" />
     <ClInclude Include="utils\encoding_formatter.h" />
     <ClInclude Include="utils\TempPathManager.h" />
@@ -157,7 +162,6 @@
     <ClInclude Include="type_define\module_info.h" />
     <ClInclude Include="type_define\process_info.h" />
     <QtMoc Include="process_dialog.h" />
-    <ClInclude Include="process_manager.h" />
     <QtMoc Include="address_list_model.h" />
   </ItemGroup>
   <ItemGroup>

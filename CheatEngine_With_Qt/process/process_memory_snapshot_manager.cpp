@@ -1,10 +1,15 @@
-#include "scan_snapshot_manager.h"
+#include "process_memory_snapshot_manager.h"
 #include "process_manager.h"
 #include "TempPathManager.h"
+#include "process_memory_snapshot_factory.h" // 新增工厂头文件
 #include <filesystem>
 #include <fstream>
 
-std::unique_ptr<ScanSnapshot> ProcessSnapshotManager::createSnapshot(const std::vector<MemoryRegion>& regions) {
+ProcessMemorySnapshotManager::ProcessMemorySnapshotManager(MemoryBackend backend)
+    : m_backend(backend) {
+}
+
+std::shared_ptr<IProcessMemorySnapshot> ProcessMemorySnapshotManager::createSnapshot(const std::vector<MemoryRegion>& regions) {
     // 1. 生成唯一的临时文件名
     std::string path = (std::filesystem::path(TempPathManager::getWorkDir()) /
         ("snapshot_" + std::to_string(GetTickCount64()) + ".bin")).string();
@@ -37,24 +42,26 @@ std::unique_ptr<ScanSnapshot> ProcessSnapshotManager::createSnapshot(const std::
     outFile.close();
 
     // 4. 返回封装好的快照实体
-    return std::make_unique<ScanSnapshot>(path, std::move(index));
+    return ProcessMemorySnapshotFactory::create(m_backend, path, std::move(index));
 }
 
-void ProcessSnapshotManager::setFirstSnapshot(std::shared_ptr<ScanSnapshot> snapshot) {
-    m_first = snapshot;
-}
 
-void ProcessSnapshotManager::setPreviousSnapshot(std::shared_ptr<ScanSnapshot> snapshot) {
-    m_prev = snapshot;
-}
+void ProcessMemorySnapshotManager::clear() {
+    // 处理第一个快照：先 reset 释放 Win32 句柄，再执行文件删除
+    if (m_first) {
+        std::string path = m_first->path();
+        m_first.reset(); // 此时会触发 Win32ProcessMemorySnapshot 的析构，调用 CloseHandle
 
-std::shared_ptr<ScanSnapshot> ProcessSnapshotManager::getFirst() const { return m_first; }
-std::shared_ptr<ScanSnapshot> ProcessSnapshotManager::getPrevious() const { return m_prev; }
+        std::error_code ec;
+        std::filesystem::remove(path, ec); // 使用 error_code 版本避免异常抛出
+    }
 
-void ProcessSnapshotManager::clear() {
-    // 自动清理物理文件
-    if (m_first) std::filesystem::remove(m_first->path());
-    if (m_prev) std::filesystem::remove(m_prev->path());
-    m_first.reset();
-    m_prev.reset();
+    // 处理上一个快照
+    if (m_prev) {
+        std::string path = m_prev->path();
+        m_prev.reset();
+
+        std::error_code ec;
+        std::filesystem::remove(path, ec);
+    }
 }
