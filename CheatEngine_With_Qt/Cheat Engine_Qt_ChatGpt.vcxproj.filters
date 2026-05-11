@@ -34,10 +34,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <QtMoc Include="process_dialog.h">
-      <Filter>Form Files</Filter>
-    </QtMoc>
-    <QtMoc Include="address_list_model.h" />
     <QtMoc Include="scan\scan_result_view_model.h">
       <Filter>new_scan_framework</Filter>
     </QtMoc>
@@ -47,9 +43,13 @@
     <QtMoc Include="language_translations\translator_manager.h">
       <Filter>utils\language</Filter>
     </QtMoc>
-  </ItemGroup>
-  <ItemGroup>
-    <QtMoc Include="MainWindow.h">
+    <QtMoc Include="ViewModel\MainWindow.h">
+      <Filter>Form Files</Filter>
+    </QtMoc>
+    <QtMoc Include="ViewModel\process_dialog.h">
+      <Filter>Form Files</Filter>
+    </QtMoc>
+    <QtMoc Include="ViewModel\address_list_model.h">
       <Filter>Form Files</Filter>
     </QtMoc>
   </ItemGroup>
@@ -78,14 +78,7 @@
     <ClCompile Include="Implement\Win_API\win32_process_enumerator.cpp">
       <Filter>implement\Win_API</Filter>
     </ClCompile>
-    <ClCompile Include="MainWindow.cpp">
-      <Filter>Form Files</Filter>
-    </ClCompile>
-    <ClCompile Include="process_dialog.cpp">
-      <Filter>Form Files</Filter>
-    </ClCompile>
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="address_list_model.cpp" />
     <ClCompile Include="scan\scan_engine.cpp">
       <Filter>new_scan_framework</Filter>
     </ClCompile>
@@ -115,6 +108,15 @@
     </ClCompile>
     <ClCompile Include="Implement\Win_API\win32_process_memory_snapshot.cpp">
       <Filter>implement\Win_API</Filter>
+    </ClCompile>
+    <ClCompile Include="ViewModel\address_list_model.cpp">
+      <Filter>Form Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ViewModel\MainWindow.cpp">
+      <Filter>Form Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ViewModel\process_dialog.cpp">
+      <Filter>Form Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -166,15 +168,6 @@
     <ClInclude Include="Implement\Win_API\win32_process_enumerator.h">
       <Filter>implement\Win_API</Filter>
     </ClInclude>
-    <ClInclude Include="IAddressSpace.h">
-      <Filter>Interface</Filter>
-    </ClInclude>
-    <ClInclude Include="IDriverLoader.h">
-      <Filter>Interface</Filter>
-    </ClInclude>
-    <ClInclude Include="IKernelObjectManager.h">
-      <Filter>Interface</Filter>
-    </ClInclude>
     <ClInclude Include="scan\scan_engine.h">
       <Filter>new_scan_framework</Filter>
     </ClInclude>
@@ -192,9 +185,6 @@
     </ClInclude>
     <ClInclude Include="scan\scan_simd_accelerate.h">
       <Filter>new_scan_framework</Filter>
-    </ClInclude>
-    <ClInclude Include="x64\Debug\qt\uic\ui_CheatEngine_With_Qt.h">
-      <Filter>Form Files</Filter>
     </ClInclude>
     <ClInclude Include="scan\scan_data_stream_define.h">
       <Filter>new_scan_framework</Filter>
@@ -223,15 +213,24 @@
     <ClInclude Include="Implement\Win_API\win32_process_memory_snapshot.h">
       <Filter>implement\Win_API</Filter>
     </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <QtUic Include="CheatEngine_With_Qt.ui">
-      <Filter>Form Files</Filter>
-    </QtUic>
+    <ClInclude Include="interface\IAddressSpace.h">
+      <Filter>Interface</Filter>
+    </ClInclude>
+    <ClInclude Include="interface\IDriverLoader.h">
+      <Filter>Interface</Filter>
+    </ClInclude>
+    <ClInclude Include="interface\IKernelObjectManager.h">
+      <Filter>Interface</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <QtTranslation Include="language_translations\Translation_en.ts">
       <Filter>utils\language</Filter>
     </QtTranslation>
+  </ItemGroup>
+  <ItemGroup>
+    <QtUic Include="ui\CheatEngine_With_Qt.ui">
+      <Filter>Form Files</Filter>
+    </QtUic>
   </ItemGroup>
 </Project>

@@ -1,14 +1,13 @@
 // scan_data_provider.h
 #pragma once
-#include "iscan_value_provider.h"
-#include "process_memory_snapshot_manager.h"
-#include "process_memory_snapshot.h"
+#include "interface\iscan_value_provider.h"
+#include "process\process_memory_snapshot_manager.h"
 #include <memory>
 #include <string>
 
 class ScanDataProvider : public IScanValueProvider {
 public:
-	// ¹¹Ôìº¯Êı½ÓÊÕ¿ìÕÕ£¨¿ÉÎª nullptr£©ºÍµ±Ç°ÏÔÊ¾ÀàĞÍ
+	// æ„é€ å‡½æ•°æ¥æ”¶å¿«ç…§ï¼ˆå¯ä¸º nullptrï¼‰å’Œå½“å‰æ˜¾ç¤ºç±»å‹
 	ScanDataProvider(ProcessMemorySnapshotManager* processSnapshotManager,
 		ScanDataType displayType);
 
@@ -16,7 +15,7 @@ public:
 	ScanDataType getDisplayType() { return m_displayType; }
 
 
-	   // IScanValueProvider ½Ó¿ÚÊµÏÖ
+	   // IScanValueProvider æ¥å£å®ç°
 	std::string getCurrentValue(uint64_t address, ScanDataType type) const override;
 	std::string getPreviousValue(uint64_t address, ScanDataType type) const override;
 	std::string getFirstValue(uint64_t address, ScanDataType type) const override;
@@ -28,6 +27,6 @@ private:
 
 	std::string readCurrentFromMemory(uint64_t address, ScanDataType type) const;
 
-	ProcessMemorySnapshotManager* m_processSnapshotManager; // ³ÖÓĞ¹ÜÀí¿ìÕÕ·ÃÎÊµÄÖ¸Õë£¨²»ÓµÓĞËùÓĞÈ¨£©
-	ScanDataType m_displayType;  // ÓÃÓÚ¸ñÊ½»¯£¬µ«½Ó¿ÚÔÊĞíÖ¸¶¨ type£¬ÓÅÏÈÊ¹ÓÃ´«Èë type
+	ProcessMemorySnapshotManager* m_processSnapshotManager; // æŒæœ‰ç®¡ç†å¿«ç…§è®¿é—®çš„æŒ‡é’ˆï¼ˆä¸æ‹¥æœ‰æ‰€æœ‰æƒï¼‰
+	ScanDataType m_displayType;  // ç”¨äºæ ¼å¼åŒ–ï¼Œä½†æ¥å£å…è®¸æŒ‡å®š typeï¼Œä¼˜å…ˆä½¿ç”¨ä¼ å…¥ type
 };

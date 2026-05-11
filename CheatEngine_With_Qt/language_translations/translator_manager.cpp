@@ -1,4 +1,4 @@
-#include "translator_manager.h"
+#include "language_translations\translator_manager.h"
 #include <QCoreApplication>
 #include <QDir>
 #include <QDebug>
@@ -12,7 +12,7 @@ TranslatorManager& TranslatorManager::instance()
 bool TranslatorManager::loadTranslation(const QString& language)
 {
     removeTranslation();
-    // ´Ó¿ÉÖ´ĞĞÎÄ¼şÍ¬Ä¿Â¼ÏÂµÄ Translate ÎÄ¼ş¼Ğ¼ÓÔØ .qm
+    // ä»å¯æ‰§è¡Œæ–‡ä»¶åŒç›®å½•ä¸‹çš„ Translate æ–‡ä»¶å¤¹åŠ è½½ .qm
     QString qmPath = QCoreApplication::applicationDirPath() + "/language_Translate/Translation_" + language + ".qm";
     if (m_translator.load(qmPath)) {
         QCoreApplication::installTranslator(&m_translator);

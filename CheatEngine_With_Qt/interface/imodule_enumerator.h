@@ -1,7 +1,7 @@
 #pragma once
 #include <vector>
 #include <cstdint>
-#include "module_info.h"
+#include "type_define\module_info.h"
 
 class IModuleEnumerator
 {

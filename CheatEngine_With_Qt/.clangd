@@ -1,0 +1,4 @@
+CompileFlags:
+  Add:
+    - "-Ie:/CheatEngine-With-kdmapper-main/CheatEngine_Wit_Qt_VS_Code"
+    - "-std=c++20"

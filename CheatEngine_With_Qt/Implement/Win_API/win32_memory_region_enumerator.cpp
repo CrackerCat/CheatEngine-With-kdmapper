@@ -1,5 +1,5 @@
-﻿#include "win32_memory_region_enumerator.h"
-#include "process_manager.h"
+#include "Implement\Win_API\win32_memory_region_enumerator.h"
+#include "process\process_manager.h"
 
 
 std::vector<MemoryRegion> Win32MemoryRegionEnumerator::enumerate() {

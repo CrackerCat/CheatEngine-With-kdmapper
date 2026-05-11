@@ -1,6 +1,6 @@
-﻿#include "scan_engine.h"
-#include "process_manager.h"
-#include "thread_pool.h"
+#include "scan\scan_engine.h"
+#include "process\process_manager.h"
+#include "utils\thread_pool.h"
 #include <algorithm>
 
 
@@ -37,7 +37,7 @@ void ScanEngine::dispatchScan(const ScanRequest& request, const std::vector<Scan
 	auto regions = ProcessManager::instance().getMemoryRegions(request);
 	auto currentSnap = std::shared_ptr<IProcessMemorySnapshot>(m_processSnapshotManager->createSnapshot(regions));
 	auto prevSnap = m_processSnapshotManager->getPreviousProcessMemeorySnapshot();
-	auto firstSnap = m_processSnapshotManager->getFirstProcessMemeorySnapshot();
+
 
 	// 用于等待所有线程完成的期值列表
 	std::vector<std::future<void>> futures;
@@ -46,14 +46,14 @@ void ScanEngine::dispatchScan(const ScanRequest& request, const std::vector<Scan
 		m_totalItems.store(static_cast<int>(regions.size()));
 		for (const auto& memory_region_section : regions) {
 
-#ifdef _DEBUG
-			taskFirstScan<T>(request, memory_region_section, currentSnap, outCache);
- // _DEBUG
-#else
-			futures.push_back(GlobalThreadPool::instance().enqueue([this, request, memory_region_section, currentSnap, outCache] {
-				taskFirstScan<T>(request, memory_region_section, currentSnap, outCache);
+// #ifdef _DEBUG
+// 			taskFirstScan<T>(request, memory_region_section, currentSnap, outCache);
+//  // _DEBUG
+// #else
+			futures.push_back(GlobalThreadPool::instance().enqueue([this, request, memory_region_section, outCache] {
+				taskFirstScan<T>(request, memory_region_section,  outCache);
 				}));
-#endif
+// #endif
 		}
 		m_processSnapshotManager->setFirstSnapshot(currentSnap);
 	}
@@ -65,15 +65,15 @@ void ScanEngine::dispatchScan(const ScanRequest& request, const std::vector<Scan
 			std::vector<ScanResult> batch;
 			size_t end = (std::min)(i + batchSize, prevResults.size());
 			batch.assign(prevResults.begin() + i, prevResults.begin() + end);
-#ifdef _DEBUG
-			taskNextScan<T>(request, batch, currentSnap, prevSnap, outCache);
-#else 
+// #ifdef _DEBUG
+// 			taskNextScan<T>(request, batch, currentSnap, prevSnap, outCache);
+// #else 
 
 			futures.push_back(GlobalThreadPool::instance().enqueue(
 				[this, request, batch, currentSnap, prevSnap, outCache] {
 					taskNextScan<T>(request, batch, currentSnap, prevSnap, outCache);
 				}));
-#endif
+// #endif
 		}
 	}
 
@@ -85,7 +85,6 @@ void ScanEngine::dispatchScan(const ScanRequest& request, const std::vector<Scan
 
 template <typename T>
 void ScanEngine::taskFirstScan(const ScanRequest& request, MemoryRegion region,
-	std::shared_ptr<IProcessMemorySnapshot> firstSnapshot,
 	std::shared_ptr<AdaptiveCachePool<ScanResult>> outCache)
 {
 	if (m_cancel.load()) return;
@@ -182,12 +181,15 @@ void ScanEngine::taskNextScan(const ScanRequest& request,
 {
 	std::vector<ScanResult> survivors;
 	survivors.reserve(oldBatch.size());
+	auto firstSnap = m_processSnapshotManager->getFirstProcessMemeorySnapshot();
 
 	auto* p = std::get_if<ValueParams>(&request.params);
 	T v1 = p ? static_cast<T>(p->value1) : 0;
 	T v2 = p ? static_cast<T>(p->value2) : 0;
 
 
+	
+		
 	for (const auto& res : oldBatch) {
 		if (m_cancel.load()) break;
 		T curVal, oldVal;
@@ -202,6 +204,10 @@ void ScanEngine::taskNextScan(const ScanRequest& request,
 		case NextScanType::Changed:   if (previousSnapshot && previousSnapshot->readValue(res.address, oldVal)) match = (curVal != oldVal); break;
 		case NextScanType::Unchanged: if (previousSnapshot && previousSnapshot->readValue(res.address, oldVal)) match = (curVal == oldVal); break;
 		case NextScanType::Between:   match = (curVal >= v1 && curVal <= v2); break;
+        case NextScanType::IncreasedBy: if (previousSnapshot && previousSnapshot->readValue(res.address, oldVal)) match = (curVal > oldVal + v1); break;
+        case NextScanType::DecreasedBy: if (previousSnapshot && previousSnapshot->readValue(res.address, oldVal)) match = (curVal < oldVal - v1); break;
+		case NextScanType::Compare_to_First_Scan: if (firstSnap && firstSnap->readValue(res.address, oldVal)) match = (curVal == oldVal); break;
+		default: break;
 		}
 		if (match) survivors.push_back(res);
 	}

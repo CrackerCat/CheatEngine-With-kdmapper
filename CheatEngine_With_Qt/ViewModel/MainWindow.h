@@ -4,7 +4,7 @@
 #include <QTableView>
 #include <atomic>
 #include <memory>
-#include "scan_data_stream_define.h"
+#include "scan\scan_data_stream_define.h"
 
 namespace Ui {
     class CheatEngine_With_QtClass;
@@ -19,7 +19,7 @@ struct UiContext {
     ScanType firstScanType = ScanType::ExactValue;
     NextScanType nextScanType = NextScanType::Equal;
 
-    // ÅÉÉú×´Ì¬±êÖ¾
+    // æ´¾ç”ŸçŠ¶æ€æ ‡å¿—
     bool isStringMode = false;
     bool isByteArrayMode = false;
     bool isStructureMode = false;
@@ -29,15 +29,15 @@ struct UiContext {
     bool showHex = false;
     bool showFastScan = false;
     bool showFastScanOptions = false;
-    bool showStringOptions = false; // UTF-8/16, Çø·Ö´óĞ¡Ğ´
+    bool showStringOptions = false; // UTF-8/16, åŒºåˆ†å¤§å°å†™
     bool showNot = false;
-    bool showCodeSection = true;    // ¡°°üº¬´úÂë¶Î¡±Ê¼ÖÕ¿É¼û£¨³ı½á¹¹Ìå£©
+    bool showCodeSection = true;    // â€œåŒ…å«ä»£ç æ®µâ€å§‹ç»ˆå¯è§ï¼ˆé™¤ç»“æ„ä½“ï¼‰
     bool showWritableExecutable = true;
     bool showPercent = false;
     bool showRepeat = false;
     bool showOnlySimpleValue = false;
 
-    // ¿Ø¼şÆôÓÃ×´Ì¬
+    // æ§ä»¶å¯ç”¨çŠ¶æ€
     bool comboTypeEnabled = true;
     bool comboDataTypeEnabled = true;
     bool comboModuleEnabled = true;
@@ -86,7 +86,7 @@ private:
     ScanRequest buildScanRequest(ScanMode mode) const;
     
 
-	// ´Ó UI »ñÈ¡É¨Ãè²ÎÊı
+	// ä» UI è·å–æ‰«æå‚æ•°
 
     uint64_t resolveValue(const QString& text, ScanDataType dataType) const;
     ScanDataType parseDataTypeFromUI() const;
@@ -99,20 +99,20 @@ private:
     void resetToNoProcess();
     void onProcessTerminated();
 
-	//UI ×´Ì¬¿ØÖÆ
+	//UI çŠ¶æ€æ§åˆ¶
     void refreshUiControls();
     UiContext computeUiContext() const;
 
-	//½á¹¹ÌåÉ¨ÃèÏà¹Ø
+	//ç»“æ„ä½“æ‰«æç›¸å…³
     void onAddStructureMember();
     void onRemoveStructureMember();
     StructureParams getStructureParamsFromUi() const;
 
-	// É¨Ãè²ÎÊıÊäÈëÑéÖ¤
+	// æ‰«æå‚æ•°è¾“å…¥éªŒè¯
     bool validateScanInput(ScanMode mode);
 
 
-    // ×´Ì¬
+    // çŠ¶æ€
     std::unique_ptr<Ui::CheatEngine_With_QtClass> ui;
     ScanService* m_scanService = nullptr;
     ScanResultViewModel* m_resultModel = nullptr;
@@ -128,7 +128,7 @@ private:
     bool m_attachedToProcess = false;
     bool m_isFirstScan = true;
 
-    ScanDataType m_currentDataType = ScanDataType::Int32; // ¼ÇÂ¼µ±Ç°Êı¾İÀàĞÍ
+    ScanDataType m_currentDataType = ScanDataType::Int32; // è®°å½•å½“å‰æ•°æ®ç±»å‹
     ScanType     m_currentFirstScanType = ScanType::ExactValue;
 
 private slots:

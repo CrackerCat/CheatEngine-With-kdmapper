@@ -1,10 +1,10 @@
 ﻿#pragma once
-#include "scan_data_stream_define.h"
-#include "adaptive_cache.h"
-#include "process_memory_snapshot_manager.h"
-#include "scan_simd_accelerate.h"
-#include "scan_result_repository.h"
-#include "process_manager.h"
+#include "scan\scan_data_stream_define.h"
+#include "utils\adaptive_cache.h"
+#include "process\process_memory_snapshot_manager.h"
+#include "scan\scan_simd_accelerate.h"
+#include "scan\scan_result_repository.h"
+#include "process\process_manager.h"
 
 #include <atomic>
 #include <memory>
@@ -23,7 +23,7 @@ public:
 		ScanDataType dataType;                                       // 数据类型（用于结果展示）
 	};
 
-	ScanEngine() = default;
+	ScanEngine() = delete;
 	ScanEngine(ProcessMemorySnapshotManager* processSnapshotManager);
 
 	~ScanEngine() = default;
@@ -80,7 +80,6 @@ private:
 
 	template <typename T>
 	void taskFirstScan(const ScanRequest& req, MemoryRegion region,
-		std::shared_ptr<IProcessMemorySnapshot> current,
 		std::shared_ptr<AdaptiveCachePool<ScanResult>> outCache);
 
 	template <typename T>

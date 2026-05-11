@@ -1,12 +1,12 @@
-#include "memory_accessor_factory.h"
-#include "win32_memory_accessor.h"
+#include "Factory\memory_accessor_factory.h"
+#include "Implement/Win_API/win32_memory_accessor.h"
 
 std::unique_ptr<IMemoryAccessor> MemoryAccessorFactory::create(MemoryBackend type)
 {
     switch (type) {
     case MemoryBackend::Win32:
         return std::make_unique<Win32MemoryAccessor>();
-        // Î´À´ÔÚÕâÀïÌí¼Ó DBK Çı¶¯´´½¨
+        // æœªæ¥åœ¨è¿™é‡Œæ·»åŠ  DBK é©±åŠ¨åˆ›å»º
         // case MemoryBackend::DbkDriver:
         //     return std::make_unique<DbkMemoryAccessor>();
     default:

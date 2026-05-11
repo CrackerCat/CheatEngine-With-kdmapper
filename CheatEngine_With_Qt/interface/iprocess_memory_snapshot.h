@@ -8,10 +8,10 @@ class IProcessMemorySnapshot {
 public:
     virtual ~IProcessMemorySnapshot() = default;
 
-    // 核心读取接口
+    // 鏍稿績璇诲彇鎺ュ彛
     virtual bool readData(uint64_t address, uint8_t* buffer, size_t size) const = 0;
 
-    // 模板辅助函数
+    // 妯℃澘杈呭姪鍑芥暟
     template <typename T>
     bool readValue(uint64_t addr, T& outVal) const {
         return readData(addr, reinterpret_cast<uint8_t*>(&outVal), sizeof(T));

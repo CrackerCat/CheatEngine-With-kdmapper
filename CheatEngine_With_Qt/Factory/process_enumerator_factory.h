@@ -1,7 +1,7 @@
 #pragma once
-#include "iprocess_enumerator.h"
+#include "interface\iprocess_enumerator.h"
 #include <memory>
-#include "memory_accessor_factory.h"   // ∏¥”√ MemoryBackend
+#include "Factory\memory_accessor_factory.h"   // Â§çÁî® MemoryBackend
 
 class ProcessEnumeratorFactory
 {

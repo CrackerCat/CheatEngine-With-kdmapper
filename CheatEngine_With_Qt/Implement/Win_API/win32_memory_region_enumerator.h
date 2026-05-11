@@ -1,6 +1,6 @@
 #pragma once
-#include "imemory_region_enumerator.h"
-#include "scan_data_stream_define.h"
+#include "interface\imemory_region_enumerator.h"
+#include "scan/scan_data_stream_define.h"
 #include <Windows.h>
 #include <vector>
 
@@ -10,7 +10,7 @@ public:
     std::vector<MemoryRegion> enumerate() override;
 	std::vector<MemoryRegion> enumerate(const ScanRequest& req) override;
 private:
-    // ¸¨Öúº¯Êı£ºÅĞ¶ÏÄÚ´æÒ³±£»¤ÊôĞÔ
+    // è¾…åŠ©å‡½æ•°ï¼šåˆ¤æ–­å†…å­˜é¡µä¿æŠ¤å±æ€§
     inline bool isWritable(DWORD protect) {
         return (protect & (PAGE_READWRITE | PAGE_WRITECOPY | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY));
     }

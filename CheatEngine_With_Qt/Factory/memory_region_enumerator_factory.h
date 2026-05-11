@@ -1,8 +1,8 @@
 #pragma once
-#include "imemory_region_enumerator.h"
+#include "interface\imemory_region_enumerator.h"
 #include <memory>
-#include "memory_accessor_factory.h"   // ¸´ÓÃ MemoryBackend Ã¶¾Ù
-#include "win32_memory_region_enumerator.h"
+#include "Factory\memory_accessor_factory.h" 
+
 
 
 class MemoryRegionEnumeratorFactory

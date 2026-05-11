@@ -1,7 +1,7 @@
 #pragma once
-#include "imodule_enumerator.h"
+#include "interface\imodule_enumerator.h"
 #include <memory>
-#include "memory_accessor_factory.h"   // ∏¥”√ MemoryBackend √∂æŸ
+#include "Factory\memory_accessor_factory.h"   // Â§çÁî® MemoryBackend Êûö‰∏æ
 
 class ModuleEnumeratorFactory
 {

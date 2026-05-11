@@ -1,0 +1,43 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "🐛 Debug 一键调试 (构建+运行)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/Debug/CheatEngineQt.exe",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "console": "integratedTerminal",
+            "preLaunchTask": "🔨 Debug 构建",
+            "visualizerFile": "c:\\Users\\Administrator\\AppData\\Roaming\\Code\\User\\workspaceStorage\\1e249e39cd5ba6687f587947d154fb23\\tonka3000.qtvsctools\\qt.natvis.xml"
+        },
+        {
+            "name": "🚀 Release 一键调试 (构建+运行)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/Release/CheatEngineQt.exe",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "console": "integratedTerminal",
+            "preLaunchTask": "🔨 Release 构建",
+            "visualizerFile": "c:\\Users\\Administrator\\AppData\\Roaming\\Code\\User\\workspaceStorage\\1e249e39cd5ba6687f587947d154fb23\\tonka3000.qtvsctools\\qt.natvis.xml"
+        },
+        {
+            "name": "🐛 Debug (不构建, 直接调试)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/Debug/CheatEngineQt.exe",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "console": "integratedTerminal",
+            "visualizerFile": "c:\\Users\\Administrator\\AppData\\Roaming\\Code\\User\\workspaceStorage\\1e249e39cd5ba6687f587947d154fb23\\tonka3000.qtvsctools\\qt.natvis.xml"
+        }
+    ]
+}

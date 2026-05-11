@@ -1,9 +1,9 @@
-﻿#pragma once
+#pragma once
 #include <string>
 #include <cstdio>
 #include <cctype>
 #include <cstdint>
-#include "scan_data_stream_define.h"
+#include "scan/scan_data_stream_define.h"
 
 
 class EncodingFormatter

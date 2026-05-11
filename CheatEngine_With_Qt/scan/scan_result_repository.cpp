@@ -1,6 +1,6 @@
 #include "scan_result_repository.h"
-#include "encoding_formatter.h"
-#include "process_manager.h"
+#include "utils\encoding_formatter.h"
+#include "process\process_manager.h"
 #include <algorithm>
 
 void ScanResultRepository::replaceAllResults(std::vector<ScanResult>&& newResults) {
@@ -9,7 +9,7 @@ void ScanResultRepository::replaceAllResults(std::vector<ScanResult>&& newResult
     m_generation.fetch_add(1, std::memory_order_release);
 }
 
-// ---------------- ÒÔÏÂÂß¼­±£³Ö¾«¼ò ----------------
+// ---------------- ä»¥ä¸‹é€»è¾‘ä¿æŒç²¾ç®€ ----------------
 
 size_t ScanResultRepository::getResultCount() const
 {
@@ -37,7 +37,7 @@ int ScanResultRepository::getCurrentGeneration() const
 
 std::vector<ScanResult> ScanResultRepository::getResults() const {
     std::lock_guard<std::mutex> lock(m_mutex);
-    return m_result_data; // ·µ»Ø¿½±´ÒÔÈ·±£Ïß³Ì°²È«
+    return m_result_data; // è¿”å›æ‹·è´ä»¥ç¡®ä¿çº¿ç¨‹å®‰å…¨
 }
 
 void ScanResultRepository::clear() {

@@ -1,5 +1,5 @@
-#include "module_enumerator_factory.h"
-#include "win32_module_enumerator.h"    // Win32 ÊµÏÖ
+#include "Factory\module_enumerator_factory.h"
+#include "Implement\Win_API\win32_module_enumerator.h"    // Win32 å®ç°
 
 std::unique_ptr<IModuleEnumerator> ModuleEnumeratorFactory::create(MemoryBackend type)
 {
@@ -7,7 +7,7 @@ std::unique_ptr<IModuleEnumerator> ModuleEnumeratorFactory::create(MemoryBackend
     {
     case MemoryBackend::Win32:
         return std::make_unique<Win32ModuleEnumerator>();
-        // Î´À´Ìí¼Ó DBK£º
+        // æœªæ¥æ·»åŠ  DBKï¼š
         // case MemoryBackend::DbkDriver:
         //     return std::make_unique<DbkModuleEnumerator>();
     default:

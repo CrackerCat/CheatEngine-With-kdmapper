@@ -1,4 +1,4 @@
-#include "win32_memory_accessor.h"
+#include "Implement\Win_API\win32_memory_accessor.h"
 
 bool Win32MemoryAccessor::attach(uint32_t pid)
 {
@@ -38,7 +38,7 @@ bool Win32MemoryAccessor::isProcessAlive() const
 {
     if (!hProcess)
         return false;
-    // 等待 0 毫秒：若返回 WAIT_TIMEOUT 表示进程仍在运行
+    // 绛夊緟 0 姣锛氳嫢杩斿洖 WAIT_TIMEOUT 琛ㄧず杩涚▼浠嶅湪杩愯
     DWORD result = WaitForSingleObject(hProcess, 0);
     return (result == WAIT_TIMEOUT);
 }

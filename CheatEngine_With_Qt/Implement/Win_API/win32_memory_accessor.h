@@ -1,5 +1,5 @@
 #pragma once
-#include "imemory_accessor.h"
+#include "interface\imemory_accessor.h"
 #include <Windows.h>
 
 class Win32MemoryAccessor : public IMemoryAccessor

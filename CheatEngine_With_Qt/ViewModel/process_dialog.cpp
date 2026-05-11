@@ -1,4 +1,4 @@
-﻿#include "process_dialog.h"
+#include "ViewModel\process_dialog.h"
 
 #include <QVBoxLayout>
 #include <QPushButton>

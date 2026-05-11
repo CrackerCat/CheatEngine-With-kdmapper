@@ -1,8 +1,8 @@
 #pragma once
-#include "iprocess_enumerator.h"
+#include "interface\iprocess_enumerator.h"
 #include <vector>
 #include <set>
-#include "process_info.h"
+#include "type_define\process_info.h"
 
 class Win32ProcessEnumerator : public IProcessEnumerator
 {

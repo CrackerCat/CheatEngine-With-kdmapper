@@ -1,7 +1,7 @@
 #pragma once
-#include "iprocess_memory_snapshot.h"
-#include "memory_accessor_factory.h"
-#include "memory_region.h"
+#include "interface/iprocess_memory_snapshot.h"
+#include "Factory\memory_accessor_factory.h"
+#include "type_define\memory_region.h"
 #include <memory>
 #include <vector>
 
@@ -10,22 +10,22 @@ class ProcessMemorySnapshotManager {
 public:
 
 	explicit ProcessMemorySnapshotManager(MemoryBackend backend);
-	// ´´½¨ĞÂ¿ìÕÕ²¢·µ»ØÊµÌå
+	// åˆ›å»ºæ–°å¿«ç…§å¹¶è¿”å›å®ä½“
 	std::shared_ptr<IProcessMemorySnapshot> createSnapshot(const std::vector<MemoryRegion>& regions);
 
-	// ¹ÜÀí¿ìÕÕ×´Ì¬ÇĞ»»£¨First, Previous, Current£©
+	// ç®¡ç†å¿«ç…§çŠ¶æ€åˆ‡æ¢ï¼ˆFirst, Previous, Currentï¼‰
 	void setFirstSnapshot(std::shared_ptr<IProcessMemorySnapshot> snapshot) { m_first = snapshot; };
 	void setPreviousSnapshot(std::shared_ptr<IProcessMemorySnapshot> snapshot) { m_prev = snapshot; };
 
 	std::shared_ptr<IProcessMemorySnapshot> getFirstProcessMemeorySnapshot() const { return m_first; }
 	std::shared_ptr<IProcessMemorySnapshot> getPreviousProcessMemeorySnapshot() const { return m_prev; }
 
-	void clear(); // ´¦ÀíÁÙÊ±ÎÄ¼şµÄÇåÀí
+	void clear(); // å¤„ç†ä¸´æ—¶æ–‡ä»¶çš„æ¸…ç†
 
 
 private:
-	std::shared_ptr<IProcessMemorySnapshot> m_first;
-	std::shared_ptr<IProcessMemorySnapshot> m_prev;
+	std::shared_ptr<IProcessMemorySnapshot> m_first=nullptr;
+	std::shared_ptr<IProcessMemorySnapshot> m_prev=nullptr;
 
 	MemoryBackend  m_backend;
 };

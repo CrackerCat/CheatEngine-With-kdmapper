@@ -1,16 +1,15 @@
 #pragma once
 #include <QAbstractTableModel>
 #include <vector>
-#include "address_item.h"
+#include "type_define\address_item.h"
 
 class AddressListModel : public QAbstractTableModel
 {
     Q_OBJECT
-
 public:
     explicit AddressListModel(QObject* parent = nullptr);
 
-    // ±ØĞëÊµÏÖµÄ½Ó¿Ú
+    // å¿…é¡»å®ç°çš„æ¥å£
     int rowCount(const QModelIndex& parent = QModelIndex()) const override;
     int columnCount(const QModelIndex& parent = QModelIndex()) const override;
     QVariant data(const QModelIndex& index, int role) const override;
@@ -18,12 +17,12 @@ public:
     bool setData(const QModelIndex& index, const QVariant& value, int role) override;
     Qt::ItemFlags flags(const QModelIndex& index) const override;
 
-    // µØÖ·²Ù×÷
+    // åœ°å€æ“ä½œ
     void addItem(uint64_t address, const QString& description, uint64_t value, ValueType type = ValueType::Integer);
     void removeItem(int row);
     void clear();
 
-    // »ñÈ¡È«²¿ÌõÄ¿µÄÒıÓÃ£¨¹©ºóÌ¨¶³½áµÈÊ¹ÓÃ£©
+    // è·å–å…¨éƒ¨æ¡ç›®çš„å¼•ç”¨ï¼ˆä¾›åå°å†»ç»“ç­‰ä½¿ç”¨ï¼‰
     std::vector<AddressItem>& items() { return m_items; }
     const std::vector<AddressItem>& items() const { return m_items; }
 

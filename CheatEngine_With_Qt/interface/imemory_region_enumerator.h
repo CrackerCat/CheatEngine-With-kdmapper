@@ -1,7 +1,7 @@
 #pragma once
 #include <vector>
-#include "memory_region.h"
-#include "scan_data_stream_define.h"
+#include "type_define/memory_region.h"
+#include "scan/scan_data_stream_define.h"
 
 class IMemoryRegionEnumerator
 {

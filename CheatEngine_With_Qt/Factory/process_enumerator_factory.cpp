@@ -1,5 +1,5 @@
-#include "process_enumerator_factory.h"
-#include "win32_process_enumerator.h"   // Win32  µœ÷
+#include "Factory\process_enumerator_factory.h"
+#include "Implement\Win_API\win32_process_enumerator.h"   // Win32 ÂÆûÁé∞
 
 std::unique_ptr<IProcessEnumerator> ProcessEnumeratorFactory::create(MemoryBackend type)
 {
@@ -7,7 +7,7 @@ std::unique_ptr<IProcessEnumerator> ProcessEnumeratorFactory::create(MemoryBacke
     {
     case MemoryBackend::Win32:
         return std::make_unique<Win32ProcessEnumerator>();
-        // Œ¥¿¥£∫case MemoryBackend::DbkDriver: ...
+        // Êú™Êù•Ôºöcase MemoryBackend::DbkDriver: ...
     default:
         return nullptr;
     }

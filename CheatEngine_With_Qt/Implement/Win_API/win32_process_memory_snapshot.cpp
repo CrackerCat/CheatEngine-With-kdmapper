@@ -1,4 +1,4 @@
-#include "win32_process_memory_snapshot.h"
+#include "Implement\Win_API\win32_process_memory_snapshot.h"
 #include <cstring>
 #include <fstream>
 
@@ -34,13 +34,13 @@ bool Win32ProcessMemorySnapshot::readData(uint64_t address, uint8_t* buffer, siz
 
     size_t readOffset = it->second + (address - it->first);
 
-    // 优先使用内存映射读取
+    // 浼樺厛浣跨敤鍐呭瓨鏄犲皠璇诲彇
     if (m_pBuffer && (readOffset + size <= m_fileSize)) {
         std::memcpy(buffer, m_pBuffer + readOffset, size);
         return true;
     }
 
-    // 回退方案
+    // 鍥為��鏂规
     thread_local std::ifstream localStream;
     if (!localStream.is_open()) localStream.open(m_path, std::ios::binary);
     if (!localStream) return false;

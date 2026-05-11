@@ -1,5 +1,6 @@
-#include "memory_region_enumerator_factory.h"
-
+#include "Factory/memory_region_enumerator_factory.h"
+#include "Implement/Win_API/win32_memory_region_enumerator.h"
+#include <memory>
 
 std::unique_ptr<IMemoryRegionEnumerator> MemoryRegionEnumeratorFactory::create(MemoryBackend type)
 {
@@ -7,7 +8,7 @@ std::unique_ptr<IMemoryRegionEnumerator> MemoryRegionEnumeratorFactory::create(M
     {
     case MemoryBackend::Win32:
         return std::make_unique<Win32MemoryRegionEnumerator>();
-        // Œ¥¿¥£∫case MemoryBackend::DbkDriver: ...
+        // Êú™Êù•Ôºöcase MemoryBackend::DbkDriver: ...
     default:
         return nullptr;
     }

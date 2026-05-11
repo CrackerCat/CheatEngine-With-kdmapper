@@ -1,16 +1,14 @@
-﻿// mainwindow.cpp
-
 //  "([^"]*[\u4e00-\u9fff][^"]*)" 这个正则表达式可以匹配包含至少一个中文字符的字符串，适用于提取中文文本。它的工作原理如下
 
-#include "mainwindow.h"
+#include "ViewModel\MainWindow.h"
 #include "ui_CheatEngine_With_Qt.h"
-#include "address_list_model.h"
-#include "process_dialog.h"
-#include "process_manager.h"
-#include "scan_service.h"
-#include "scan_result_view_model.h"
-#include "scan_data_stream_define.h"
-#include "translator_manager.h"
+#include "ViewModel\address_list_model.h"
+#include "ViewModel\process_dialog.h"
+#include "process\process_manager.h"
+#include "scan\scan_service.h"
+#include "scan\scan_result_view_model.h"
+#include "scan\scan_data_stream_define.h"
+#include "language_translations\translator_manager.h"
 
 #include <QTimer>
 #include <QTableView>

@@ -3,8 +3,8 @@
 #include <QDialog>
 #include <QPushButton>
 #include <QTableWidget>
-#include "process_manager.h"
-#include "process_info.h"
+#include "process\process_manager.h"
+#include "type_define\process_info.h"
 
 class ProcessDialog : public QDialog
 {
@@ -18,8 +18,8 @@ public:
 private:
     QTabWidget* tabs;
 
-    QTableWidget* appTable;   // ÓĞ´°¿Ú
-    QTableWidget* allTable;   // È«²¿½ø³Ì
+    QTableWidget* appTable;   // æœ‰çª—å£
+    QTableWidget* allTable;   // å…¨éƒ¨è¿›ç¨‹
     QPushButton* attachBtn;
     QPushButton* cancelBtn;
 

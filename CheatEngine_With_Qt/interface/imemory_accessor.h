@@ -13,8 +13,8 @@ public:
     virtual bool read(uint64_t addr, void* buffer, size_t size) = 0;
     virtual bool write(uint64_t addr, const void* buffer, size_t size) = 0;
     virtual void* nativeHandle() = 0;
-    virtual std::string name() const = 0;   // ¡ï ĞÂÔö
-    // ¡ï ĞÂÔö£º¼ì²âÄ¿±ê½ø³ÌÊÇ·ñ´æ»î
+    virtual std::string name() const = 0;   // â˜… æ–°å¢
+    // â˜… æ–°å¢ï¼šæ£€æµ‹ç›®æ ‡è¿›ç¨‹æ˜¯å¦å­˜æ´»
     virtual bool isProcessAlive() const = 0;
 
 };

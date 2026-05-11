@@ -1,4 +1,5 @@
-﻿#include "win32_process_enumerator.h"
+#include "Implement/Win_API/win32_process_enumerator.h"
+#include "utils/string_conversion.h"
 #include <Windows.h>
 #include <TlHelp32.h>
 #include <Psapi.h>
@@ -77,7 +78,11 @@ std::vector<ProcessInfo> Win32ProcessEnumerator::enumerate()
         {
             ProcessInfo info;
             info.pid = pe.th32ProcessID;
+#ifdef UNICODE
+            info.name = wstring_to_utf8(pe.szExeFile);
+#else
             info.name = std::string(pe.szExeFile);
+#endif
             processMap[info.pid] = info;
 
             

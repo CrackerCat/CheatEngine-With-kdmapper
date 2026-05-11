@@ -1,6 +1,6 @@
-#include "MainWindow.h"
+#include "ViewModel\MainWindow.h"
 #include <QtWidgets/QApplication>
-#include "TempPathManager.h"
+#include "utils\TempPathManager.h"
 
 
 int main(int argc, char *argv[])
