@@ -1,7 +1,6 @@
 #include "scan\scan_engine.h"
 #include "process\process_manager.h"
 #include "utils\thread_pool.h"
-#include <algorithm>
 
 
 ScanEngine::ScanEngine(ProcessMemorySnapshotManager* processSnapshotManager):
@@ -17,6 +16,7 @@ ScanEngine::ScanReport ScanEngine::execute(const ScanRequest& request, const std
 
 	// 适配全部数据类型
 	switch (request.dataType) {
+	case ScanDataType::Bit:     dispatchScan<uint8_t>(request, prevResults, results); break;
 	case ScanDataType::Int8:    dispatchScan<int8_t>(request, prevResults, results); break;
 	case ScanDataType::Int16:   dispatchScan<int16_t>(request, prevResults, results); break;
 	case ScanDataType::Int32:   dispatchScan<int32_t>(request, prevResults, results); break;
@@ -24,8 +24,11 @@ ScanEngine::ScanReport ScanEngine::execute(const ScanRequest& request, const std
 	case ScanDataType::Float32: dispatchScan<float>(request, prevResults, results); break;
 	case ScanDataType::Float64: dispatchScan<double>(request, prevResults, results); break;
 	case ScanDataType::AsciiString:
+	case ScanDataType::Utf8String:
 	case ScanDataType::Utf16String:
-	case ScanDataType::ByteArray: dispatchScan<uint8_t>(request, prevResults, results); break;
+	case ScanDataType::ByteArray:
+		dispatchScan<uint8_t>(request, prevResults, results); break;
+	case ScanDataType::Structure: break;
 	}
 	return { results, request.dataType};
 }
@@ -89,12 +92,67 @@ void ScanEngine::taskFirstScan(const ScanRequest& request, MemoryRegion region,
 {
 	if (m_cancel.load()) return;
 
-
 	auto mem = ProcessManager::instance().memory();
-	if (!mem || region.size < sizeof(T)) {
-		m_progress.fetch_add(1);
-		return;
+	if (!mem) { m_progress.fetch_add(1); return; }
+
+	// ── 字符串 / 字节数组 首次扫描（仅 T=uint8_t 时编译，独立 Chunk 循环）──
+	if constexpr (sizeof(T) == 1) {
+		if (isStringType(request.dataType) || isByteArrayType(request.dataType)) {
+			if (region.size == 0) { m_progress.fetch_add(1); return; }
+			// 计算最大模式长度，用于 chunk 间的重叠
+			size_t maxPatternLen = 0;
+			if (isStringType(request.dataType)) {
+				if (auto* sp = std::get_if<StringParams>(&request.params)) {
+					maxPatternLen = sp->text.length();
+					if (request.dataType == ScanDataType::Utf16String) maxPatternLen *= 2;
+				}
+			} else {
+				if (auto* ap = std::get_if<AobParams>(&request.params))
+					maxPatternLen = ap->pattern.size();
+			}
+			if (maxPatternLen == 0) { m_progress.fetch_add(1); return; }
+			const size_t chunkSize = 64 * 1024;
+			const size_t overlap = maxPatternLen; // 确保跨越边界的模式不会漏掉
+			std::vector<uint8_t> memBuf(chunkSize + overlap);
+			std::vector<ScanResult> batchResults; batchResults.reserve(2048);
+			bool firstChunk = true;
+			for (size_t off = 0; off < region.size && !m_cancel.load(); off += chunkSize) {
+				size_t toRead = (std::min)(chunkSize + (firstChunk ? 0 : overlap), region.size - off);
+				if (!mem->read(region.base + off, memBuf.data(), toRead)) continue;
+				std::vector<uint64_t> hits;
+				// 非首 chunk 时，只提交 chunkSize 之后的新数据（避免重复匹配 overlap 区域）
+				size_t searchLen = firstChunk ? toRead : chunkSize;
+				if (isStringType(request.dataType)) {
+					if (auto* sp = std::get_if<StringParams>(&request.params)) {
+						std::vector<uint8_t> searchView(memBuf.begin(), memBuf.begin() + toRead);
+						performStringSearch(searchView, region.base + off, *sp, request.dataType, hits);
+						// 去重：滤掉 overlap 区域中的匹配（只保留 searchLen 之后的）
+						hits.erase(std::remove_if(hits.begin(), hits.end(), [&](uint64_t addr) {
+							return !firstChunk && addr < region.base + off + overlap;
+						}), hits.end());
+					}
+				} else {
+					if (auto* ap = std::get_if<AobParams>(&request.params)) {
+						performAobSearch(memBuf, region.base + off, *ap, hits);
+						hits.erase(std::remove_if(hits.begin(), hits.end(), [&](uint64_t addr) {
+							return !firstChunk && addr < region.base + off + overlap;
+						}), hits.end());
+					}
+				}
+				for (auto addr : hits) {
+					batchResults.push_back({ addr });
+					if (batchResults.size() >= 1024) { outCache->push_back_batch(batchResults); batchResults.clear(); }
+				}
+				firstChunk = false;
+			}
+			if (!batchResults.empty()) outCache->push_back_batch(batchResults);
+			m_progress.fetch_add(1);
+			return;
+		}
 	}
+
+	// ── 数值类型扫描（原有逻辑，完全不动）────────────────────
+	if (region.size < sizeof(T)) { m_progress.fetch_add(1); return; }
 
 	const size_t step = request.alignment;
 	const size_t chunkSize = 64 * 1024; // 64KB Chunk
@@ -103,66 +161,49 @@ void ScanEngine::taskFirstScan(const ScanRequest& request, MemoryRegion region,
 	std::vector<ScanResult> batchResults;
 	batchResults.reserve(2048);
 
-	// 预解析参数
 	T v1 = 0, v2 = 0;
 	if (auto* p = std::get_if<ValueParams>(&request.params)) {
 		v1 = static_cast<T>(p->value1);
 		v2 = static_cast<T>(p->value2);
 	}
 
-	// 初始化 SIMD 目标块（将搜索值广播到整个缓冲区）
 	if (request.firstType != ScanType::UnknownInitial && request.firstType != ScanType::Between) {
-		for (size_t i = 0; i < targetBuf.size(); i += sizeof(T)) {
+		for (size_t i = 0; i < targetBuf.size(); i += sizeof(T))
 			std::memcpy(targetBuf.data() + i, &v1, sizeof(T));
-		}
 	}
 
 	for (size_t baseOffset = 0; baseOffset < region.size; baseOffset += chunkSize) {
 		if (m_cancel.load()) break;
-
 		size_t toRead = std::min(chunkSize, region.size - baseOffset);
 		if (!mem->read(region.base + baseOffset, memBuf.data(), toRead)) continue;
 
-		// --- 情况 A: 未知初始值扫描 ---
 		if (request.firstType == ScanType::UnknownInitial) {
 			for (size_t off = 0; off + sizeof(T) <= toRead; off += step) {
 				batchResults.push_back({ region.base + baseOffset + off });
-				if (batchResults.size() >= 1024) {
-					outCache->push_back_batch(batchResults);
-					batchResults.clear();
-				}
+				if (batchResults.size() >= 1024) { outCache->push_back_batch(batchResults); batchResults.clear(); }
 			}
 		}
-		// --- 情况 B: SIMD 加速路径 (Exact/Greater/Less) ---
 		else if (request.firstType == ScanType::ExactValue || request.firstType == ScanType::GreaterThan || request.firstType == ScanType::LessThan) {
 			SimdOp op = SimdOp::Equal;
 			if (request.firstType == ScanType::GreaterThan) op = SimdOp::Greater;
 			else if (request.firstType == ScanType::LessThan) op = SimdOp::Less;
 
 			std::vector<uint64_t> matchedAddrs;
-			SimdScanner::scanMemoryBlockForMatches<T>(
-				memBuf.data(), targetBuf.data(), toRead,
+			SimdScanner::scanMemoryBlockForMatches<T>(memBuf.data(), targetBuf.data(), toRead,
 				region.base + baseOffset, step, op, matchedAddrs);
 
 			for (auto addr : matchedAddrs) {
 				batchResults.push_back({ addr });
-				if (batchResults.size() >= 1024) {
-					outCache->push_back_batch(batchResults);
-					batchResults.clear();
-				}
+				if (batchResults.size() >= 1024) { outCache->push_back_batch(batchResults); batchResults.clear(); }
 			}
 		}
-		// --- 情况 C: 标量回退路径 (Between 等) ---
 		else {
 			for (size_t off = 0; off + sizeof(T) <= toRead; off += step) {
 				T curVal;
 				std::memcpy(&curVal, memBuf.data() + off, sizeof(T));
 				if (curVal >= v1 && curVal <= v2) {
 					batchResults.push_back({ region.base + baseOffset + off });
-				}
-				if (batchResults.size() >= 1024) {
-					outCache->push_back_batch(batchResults);
-					batchResults.clear();
+					if (batchResults.size() >= 1024) { outCache->push_back_batch(batchResults); batchResults.clear(); }
 				}
 			}
 		}
@@ -187,16 +228,43 @@ void ScanEngine::taskNextScan(const ScanRequest& request,
 	T v1 = p ? static_cast<T>(p->value1) : 0;
 	T v2 = p ? static_cast<T>(p->value2) : 0;
 
-
-	
-		
 	for (const auto& res : oldBatch) {
 		if (m_cancel.load()) break;
+
+		// ── 字符串 / 字节数组（仅 T=uint8_t 时编译，直接比较后 continue）──
+		if constexpr (sizeof(T) == 1) {
+			if (isStringType(request.dataType)) {
+				auto* sp = std::get_if<StringParams>(&request.params);
+				if (sp && !sp->text.empty()) {
+					size_t len = (request.dataType == ScanDataType::Utf16String) ? sp->text.length() * 2 : sp->text.length();
+					std::vector<uint8_t> buf(len);
+					if (currentSnapshot->readData(res.address, buf.data(), len)) {
+						std::vector<uint64_t> matched;
+						performStringSearch(buf, res.address, *sp, request.dataType, matched);
+						if (!matched.empty()) survivors.push_back(res);
+					}
+				}
+				continue;
+			}
+			if (isByteArrayType(request.dataType)) {
+				auto* ap = std::get_if<AobParams>(&request.params);
+				if (ap && !ap->pattern.empty()) {
+					std::vector<uint8_t> buf(ap->pattern.size());
+					if (currentSnapshot->readData(res.address, buf.data(), ap->pattern.size())) {
+						std::vector<uint64_t> matched;
+						performAobSearch(buf, res.address, *ap, matched);
+						if (!matched.empty()) survivors.push_back(res);
+					}
+				}
+				continue;
+			}
+		}
+
 		T curVal, oldVal;
 		if (!currentSnapshot->readValue(res.address, curVal)) continue;
 
 		bool match = false;
-		switch (request.nextType) { // 补全所有 CE 再次扫描分支
+		switch (request.nextType) {
 		case NextScanType::Equal:     match = (curVal == v1); break;
 		case NextScanType::NotEqual:  match = (curVal != v1); break;
 		case NextScanType::Increased: if (previousSnapshot && previousSnapshot->readValue(res.address, oldVal)) match = (curVal > oldVal); break;
@@ -239,11 +307,12 @@ void ScanEngine::performStringSearch(const std::vector<uint8_t>& buf, uint64_t b
 {
 	if (p.text.empty() || buf.size() < p.text.length()) return;
 
-	if (type == ScanDataType::AsciiString) {
+	if (type == ScanDataType::AsciiString || type == ScanDataType::Utf8String) {
 		const std::string& target = p.text;
 		size_t tLen = target.length();
+		if (buf.size() < tLen) return;
 
-		// 性能优化：如果是区分大小写的搜索，先用 SIMD 找首字母
+		// 性能优化：区分大小写时先用 SIMD 找首字节
 		if (p.caseSensitive) {
 			std::vector<size_t> candidates;
 			SimdScanner::findFirstChar(buf.data(), buf.size(), static_cast<uint8_t>(target[0]), candidates);
@@ -257,11 +326,14 @@ void ScanEngine::performStringSearch(const std::vector<uint8_t>& buf, uint64_t b
 			}
 		}
 		else {
-			// 不区分大小写：常规线性扫描
+			// 不区分大小写：逐字节比较（仅对 ASCII 范围内的字母正确，
+			// 对多字节 UTF-8 非 ASCII 字符会逐字节 tolower，能满足大部分场景）
 			for (size_t i = 0; i <= buf.size() - tLen; ++i) {
 				bool match = true;
 				for (size_t k = 0; k < tLen; ++k) {
-					if (std::tolower(buf[i + k]) != std::tolower(static_cast<unsigned char>(target[k]))) {
+					if (compareByteInsensitive(buf[i + k], static_cast<uint8_t>(target[k]))) {
+						// 继续
+					} else {
 						match = false;
 						break;
 					}
@@ -271,9 +343,12 @@ void ScanEngine::performStringSearch(const std::vector<uint8_t>& buf, uint64_t b
 		}
 	}
 	else if (type == ScanDataType::Utf16String) {
-		// UTF-16 每一个字符占 2 字节。假设 p.text 是 UTF-8 编码，需先转为 UTF-16 数组对比
-		std::vector<uint16_t> target16;
-		for (char c : p.text) target16.push_back(static_cast<uint16_t>(static_cast<unsigned char>(c)));
+		// 将 UTF-8 搜索字符串正确转为 UTF-16（支持中文等多字节字符）
+		int wideLen = MultiByteToWideChar(CP_UTF8, 0, p.text.data(), static_cast<int>(p.text.length()), nullptr, 0);
+		if (wideLen <= 0) return;
+		std::vector<uint16_t> target16(wideLen);
+		MultiByteToWideChar(CP_UTF8, 0, p.text.data(), static_cast<int>(p.text.length()),
+			reinterpret_cast<wchar_t*>(target16.data()), wideLen);
 
 		size_t tBytes = target16.size() * 2;
 		if (buf.size() < tBytes) return;
@@ -287,8 +362,7 @@ void ScanEngine::performStringSearch(const std::vector<uint8_t>& buf, uint64_t b
 					if (ptr[k] != target16[k]) { match = false; break; }
 				}
 				else {
-					// 使用 ::towlower 处理宽字符大小写
-					if (::towlower(ptr[k]) != ::towlower(target16[k])) { match = false; break; }
+					if (!compareUtf16Insensitive(ptr[k], target16[k])) { match = false; break; }
 				}
 			}
 			if (match) matched.push_back(base + i);

@@ -1,7 +1,4 @@
-#include "scan_result_repository.h"
-#include "utils\encoding_formatter.h"
-#include "process\process_manager.h"
-#include <algorithm>
+#include "scan\scan_result_repository.h"
 
 void ScanResultRepository::replaceAllResults(std::vector<ScanResult>&& newResults) {
     std::lock_guard<std::mutex> lock(m_mutex);

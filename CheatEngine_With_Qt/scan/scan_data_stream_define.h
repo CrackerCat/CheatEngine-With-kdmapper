@@ -45,8 +45,7 @@ enum class ScanDataType : uint8_t {
     Utf16String,
     ByteArray,
     All,
-    Structure,
-    Custom
+    Structure
 };
 
 inline size_t scanDataTypeSize(ScanDataType t) {

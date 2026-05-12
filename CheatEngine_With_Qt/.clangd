@@ -1,4 +1,18 @@
 CompileFlags:
   Add:
-    - "-Ie:/CheatEngine-With-kdmapper-main/CheatEngine_Wit_Qt_VS_Code"
+    # 项目根目录（解决所有 scan\、utils\、process\ 等相对路径 include）
+    - "-Ie:/CheatEngine-With-kdmapper-main/CheatEngine_With_Qt"
+    # CMake AUTOMOC/AUTOUIC 生成的头文件（ui_*.h, moc_*.cpp）
+    - "-Ie:/CheatEngine-With-kdmapper-main/CheatEngine_With_Qt/build/CheatEngineQt_autogen/include_Debug"
+    - "-Ie:/CheatEngine-With-kdmapper-main/CheatEngine_With_Qt/build/CheatEngineQt_autogen/include_Release"
+    # Qt 6 头文件
+    - "-IE:/Qt/6.8.2/msvc2022_64/include"
+    - "-IE:/Qt/6.8.2/msvc2022_64/include/QtWidgets"
+    - "-IE:/Qt/6.8.2/msvc2022_64/include/QtCore"
+    - "-IE:/Qt/6.8.2/msvc2022_64/include/QtGui"
+    # C++20 + MSVC 兼容
     - "-std=c++20"
+    - "--target=x86_64-pc-windows-msvc"
+    - "-fms-compatibility"
+    - "-fms-extensions"
+    - "-fdelayed-template-parsing"

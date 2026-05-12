@@ -89,8 +89,7 @@ private:
         std::shared_ptr<IProcessMemorySnapshot> previousSnapshot,
 		std::shared_ptr<AdaptiveCachePool<ScanResult>> outCache);
 
-	// 特殊类型匹配算法
-
+	// 特殊类型匹配算法（字符串/AOB内部通用）
 	void performStringSearch(const std::vector<uint8_t>& buf, uint64_t base, const StringParams& p, ScanDataType type, std::vector<uint64_t>& matched);
 	void performAobSearch(const std::vector<uint8_t>& buf, uint64_t base, const AobParams& p, std::vector<uint64_t>& matched);
 

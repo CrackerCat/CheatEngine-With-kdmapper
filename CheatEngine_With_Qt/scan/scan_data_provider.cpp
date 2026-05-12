@@ -1,8 +1,7 @@
 #include "scan\scan_data_provider.h"
 #include "utils\encoding_formatter.h"
 #include "process\process_manager.h"
-#include <vector>
-#include <string>
+
 
 ScanDataProvider::ScanDataProvider(
 	ProcessMemorySnapshotManager* processSnapshotManager,

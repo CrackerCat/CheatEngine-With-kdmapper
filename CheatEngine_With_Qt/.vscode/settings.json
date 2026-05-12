@@ -3,6 +3,8 @@
     "files.autoGuessEncoding": true,
 
     "C_Cpp.intelliSenseEngine": "disabled",
+    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+    "C_Cpp.default.compileCommands": "${workspaceFolder}/build/compile_commands.json",
 
     "clangd.arguments": [
         "--compile-commands-dir=build",
@@ -15,5 +17,5 @@
     "cmake.configureSettings": {
         "CMAKE_PREFIX_PATH": "E:/Qt/6.8.2/msvc2022_64"
     },
-    "cmake.sourceDirectory": "E:/CheatEngine-With-kdmapper-main/CheatEngine_Wit_Qt"
+    "cmake.sourceDirectory": "E:/CheatEngine-With-kdmapper-main/CheatEngine_With_Qt"
 }

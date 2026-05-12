@@ -318,6 +318,10 @@ void MainWindow::onOpenProcess()
 
 void MainWindow::initDataTypeComboBox()
 {
+    // 初始化数据类型下拉框...
+    // 默认勾选 UTF-8 复选框（中文系统最常用）
+    ui->checkBox_use_UTF8->setChecked(true);
+
     ui->comboBox_Value_Data_Size->clear();
 
     // 使用 QVariant 绑定枚举值到每一个条目
@@ -422,8 +426,8 @@ StringParams MainWindow::parseStringParams() const
         sp.text = text.toUtf8().toStdString();
     }
     else {
-        // Ascii (ANSI): 按照本地 8 位编码提取
-        sp.text = text.toStdString();
+        // Ascii (ANSI): 按照本地 8 位编码提取（中文系统为 GBK）
+        sp.text = text.toLocal8Bit().toStdString();
     }
     return sp;
 }

@@ -4,9 +4,6 @@
 #include "scan\scan_result_view_model.h"
 #include "process\process_manager.h"
 
-#ifndef _DEBUG
-#include "utils\thread_pool.h"
-#endif // !_DEBUG
 
 ScanService::ScanService(QObject* parent)
 	: QObject(parent)
