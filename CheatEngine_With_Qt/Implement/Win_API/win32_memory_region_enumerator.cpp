@@ -3,10 +3,11 @@
 
 
 std::vector<MemoryRegion> Win32MemoryRegionEnumerator::enumerate() {
-    // 默认行为：调用带参版本，传入默认请求（扫描全部）
     ScanRequest defaultReq;
-    defaultReq.onlyWritable = false;
-    defaultReq.includeExecutable = true;
+    // 默认：扫描全部已提交的可读私有/映像/映射内存（CE 标准行为）
+    defaultReq.memFilter.stateFilter   = MemoryFilter::Commit;
+    defaultReq.memFilter.typeFilter    = MemoryFilter::TypePrivate | MemoryFilter::TypeImage | MemoryFilter::TypeMapped;
+    defaultReq.memFilter.accessFilter  = MemoryFilter::AccessRead | MemoryFilter::AccessWrite;
     return enumerate(defaultReq);
 }
 
@@ -31,44 +32,59 @@ std::vector<MemoryRegion> Win32MemoryRegionEnumerator::enumerate(const ScanReque
 
     // 遍历内存页
     while (addr < limit && VirtualQueryEx(hProcess, (LPCVOID)addr, &mbi, sizeof(mbi))) {
-        bool keep = false;
+        const auto& mf = req.memFilter;
+        // 下一块区域地址的快捷计算
+        auto nextBlock = [&]() -> uint64_t {
+            return (uint64_t)mbi.BaseAddress + mbi.RegionSize;
+        };
 
-        // 1. 必须是已提交的内存 (MEM_COMMIT)
-        if (mbi.State == MEM_COMMIT) {
-            // 2. 排除禁止访问和守护页
-            if (!(mbi.Protect & (PAGE_NOACCESS | PAGE_GUARD))) {
+        // ---- 阶段 1：状态 (State) 过滤 ----
+        bool stateOk = false;
+        if (mf.stateFilter & MemoryFilter::Commit)  stateOk = stateOk || (mbi.State == MEM_COMMIT);
+        if (mf.stateFilter & MemoryFilter::Reserve) stateOk = stateOk || (mbi.State == MEM_RESERVE);
+        if (mf.stateFilter & MemoryFilter::Free)    stateOk = stateOk || (mbi.State == MEM_FREE);
+        if (!stateOk) { addr = nextBlock(); continue; }
 
-                bool writeAccess = isWritable(mbi.Protect);
-                bool execAccess = isExecutable(mbi.Protect);
+        // ---- 阶段 2：类型 (Type) 过滤 ----
+        bool typeOk = false;
+        if (mf.typeFilter & MemoryFilter::TypePrivate) typeOk = typeOk || (mbi.Type == MEM_PRIVATE);
+        if (mf.typeFilter & MemoryFilter::TypeImage)   typeOk = typeOk || (mbi.Type == MEM_IMAGE);
+        if (mf.typeFilter & MemoryFilter::TypeMapped)  typeOk = typeOk || (mbi.Type == MEM_MAPPED);
+        if (!typeOk) { addr = nextBlock(); continue; }
 
-                // 3. 应用过滤逻辑
-                keep = true;
+        // ---- 阶段 3：抽象访问权限 (Access) 过滤 ----
+        bool canRead    = isReadable(mbi.Protect) && mbi.State == MEM_COMMIT;
+        bool canWrite   = isWritable(mbi.Protect);
+        bool canExecute = isExecutable(mbi.Protect);
 
-                // 如果勾选“仅可写”，排除不可写页面
-                if (req.onlyWritable && !writeAccess) {
-                    keep = false;
-                }
+        // 包容性过滤：勾选的属性中，只要满足任意一个就通过
+        // Writable/Executable/CopyOnWrite 之间是 OR 关系
+        bool passWritable    = !mf.Writable    || canWrite;                    // 不要求可写，或确实可写
+        bool passExecutable  = !mf.Executable  || canExecute;                  // 不要求可执行，或确实可执行
+        bool passCopyOnWrite = !mf.CopyOnWrite || isWriteCopy(mbi.Protect);    // 不要求COW，或确实是COW
+        if (!passWritable && !passExecutable && !passCopyOnWrite) {
+            addr = nextBlock(); continue;   // 三项都不满足才排除
+        }
 
-                // 如果未勾选“包含可执行”，排除纯执行页面（除非它是可写的）
-                if (!req.includeExecutable && execAccess && !writeAccess) {
-                    keep = false;
-                }
+        // 位掩码访问检查（与快捷开关一起决定最终保留哪些页面）
+        if (mf.accessFilter & MemoryFilter::AccessRead && !canRead)     { addr = nextBlock(); continue; }
+        if (mf.accessFilter & MemoryFilter::AccessWrite && !canWrite)    { addr = nextBlock(); continue; }
+        if (mf.accessFilter & MemoryFilter::AccessExecute && !canExecute){ addr = nextBlock(); continue; }
 
-                // 4. 内存类型过滤：CE 默认扫描 Private, Image (DLLs), 和 Mapped
-                // 如果你想完全对齐 CE，通常保留这三种类型即可
-                if (mbi.Type != MEM_PRIVATE && mbi.Type != MEM_IMAGE && mbi.Type != MEM_MAPPED) {
-                    keep = false;
-                }
+        // ---- 阶段 4：具体保护属性 (Protect) 过滤 ----
+        if (mf.protectFilter != 0) {
+            if (!hasRequiredProtect(mbi.Protect, mf.protectFilter)) {
+                addr = nextBlock(); continue;
             }
         }
 
-        if (keep) {
-            // 处理可能的截断（如果当前页超出了模块范围）
+        // ---- 所有过滤条件通过，记录此区域 ----
+        {
             uint64_t base = (uint64_t)mbi.BaseAddress;
             size_t size = mbi.RegionSize;
 
-            if (base < addr) { // 处理起始地址在 mbi 范围内的情况
-                size -= (addr - base);
+            if (base < addr) {
+                size -= (size_t)(addr - base);
                 base = addr;
             }
             if (base + size > limit) {
@@ -79,9 +95,7 @@ std::vector<MemoryRegion> Win32MemoryRegionEnumerator::enumerate(const ScanReque
         }
 
         // 移动到下一个区域
-        uint64_t nextAddr = (uint64_t)mbi.BaseAddress + mbi.RegionSize;
-        if (nextAddr <= addr) break; // 防止溢出死循环
-        addr = nextAddr;
+        addr = nextBlock();
     }
 
     CloseHandle(hProcess);

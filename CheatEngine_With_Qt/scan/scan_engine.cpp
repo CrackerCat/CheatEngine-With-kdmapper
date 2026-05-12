@@ -287,17 +287,36 @@ void ScanEngine::taskNextScan(const ScanRequest& request,
 void ScanEngine::performAobSearch(const std::vector<uint8_t>& buf, uint64_t base, const AobParams& p, std::vector<uint64_t>& matched) {
 	if (p.pattern.empty() || buf.size() < p.pattern.size()) return;
 
-	for (size_t i = 0; i <= buf.size() - p.pattern.size(); ++i) {
-		bool match = true;
-		for (size_t k = 0; k < p.pattern.size(); ++k) {
-			// 如果 mask[k] 为 true，表示该字节需要匹配；为 false 则是通配符 '?'
-			if (p.mask[k] && buf[i + k] != p.pattern[k]) {
-				match = false;
-				break;
-			}
-		}
-		if (match) matched.push_back(base + i);
-	}
+    const size_t patLen = p.pattern.size();
+
+    // ── 无通配符：用 SIMD 找首字节候选 + memcmp 验证 ──
+    if (std::all_of(p.mask.begin(), p.mask.end(), [](bool b) { return b; })) {
+        std::vector<size_t> candidates;
+        SimdScanner::findFirstChar(buf.data(), buf.size(), p.pattern[0], candidates);
+        for (size_t offset : candidates) {
+            if (offset + patLen <= buf.size()) {
+                if (std::memcmp(buf.data() + offset, p.pattern.data(), patLen) == 0) {
+                    matched.push_back(base + offset);
+                }
+            }
+        }
+        return;
+    }
+
+    // ── 有通配符：逐字节扫描 ──
+    for (size_t i = 0; i <= buf.size() - patLen; ++i) {
+        bool match = true;
+        for (size_t k = 0; k < patLen; ++k) {
+            if (p.mask[k]) { // 需要匹配的字节
+                if (buf[i + k] != p.pattern[k]) {
+                    match = false;
+                    break;
+                }
+            }
+            // else: 通配符位置，跳过比较
+        }
+        if (match) matched.push_back(base + i);
+    }
 }
 
 

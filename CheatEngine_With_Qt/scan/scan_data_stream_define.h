@@ -57,8 +57,8 @@ inline size_t scanDataTypeSize(ScanDataType t) {
     case ScanDataType::Int64:   return 8;
     case ScanDataType::Float32: return 4;
     case ScanDataType::Float64: return 8;
-    case ScanDataType::AsciiString: return 0;
-    case ScanDataType::Utf8String:  return 0; // 变长或特殊处理
+    case ScanDataType::AsciiString: return 0; //特殊类型处理
+    case ScanDataType::Utf8String:  return 0; 
     case ScanDataType::Utf16String: return 0;
     case ScanDataType::ByteArray:   return 0;
     case ScanDataType::All:         return 8; // 按最大长度读取以兼容所有子类型
@@ -66,8 +66,45 @@ inline size_t scanDataTypeSize(ScanDataType t) {
     }
 }
 
+// 内存属性过滤结构体（用于限定扫描范围）
+struct MemoryFilter {
+    // ---- 内存状态 (stateFilter) ----
+    static constexpr uint32_t Commit  = 0x1000;   // MEM_COMMIT
+    static constexpr uint32_t Reserve = 0x2000;   // MEM_RESERVE
+    static constexpr uint32_t Free    = 0x10000;  // MEM_FREE
 
+    // ---- 内存类型 (typeFilter) ----
+    static constexpr uint32_t TypePrivate = 0x20000;   // MEM_PRIVATE
+    static constexpr uint32_t TypeImage   = 0x1000000; // MEM_IMAGE
+    static constexpr uint32_t TypeMapped  = 0x40000;   // MEM_MAPPED
 
+    // ---- 抽象访问权限 (accessFilter) ----
+    static constexpr uint32_t AccessRead    = 1;
+    static constexpr uint32_t AccessWrite   = 2;
+    static constexpr uint32_t AccessExecute = 4;
+
+    // ---- 具体页面保护属性 (protectFilter) ----
+    static constexpr uint32_t ProtectNoAccess        = 0x0001;
+    static constexpr uint32_t ProtectReadOnly        = 0x0002;
+    static constexpr uint32_t ProtectReadWrite       = 0x0004;
+    static constexpr uint32_t ProtectWriteCopy       = 0x0008;
+    static constexpr uint32_t ProtectExecute         = 0x0010;
+    static constexpr uint32_t ProtectExecuteRead     = 0x0020;
+    static constexpr uint32_t ProtectExecuteReadWrite = 0x0040;
+    static constexpr uint32_t ProtectExecuteWriteCopy = 0x0080;
+    static constexpr uint32_t ProtectGuard           = 0x0100;
+
+    // ===== 过滤条件（位掩码，0 表示不限制该类别） =====
+    uint32_t stateFilter   = Commit;                // 默认：已提交
+    uint32_t typeFilter    = TypePrivate | TypeImage | TypeMapped; // 默认：全部三种
+    uint32_t accessFilter  = AccessRead;            // 默认：至少可读
+    uint32_t protectFilter = 0;                     // 0 = 不按具体保护属性过滤
+
+    // ===== 便利快捷开关（Hi-Level 过滤，与 accessFilter 配合使用） =====
+    bool Writable          = false;
+    bool Executable        = false;  
+    bool CopyOnWrite       = false;
+};
 
 // 仅在 Between 时使用
 struct ValueParams {
@@ -135,8 +172,9 @@ struct ScanRequest {
     // 具体参数（由 mode 和 dataType 决定取哪种）
     ScanParams  params;
 
-    bool onlyWritable;
-    bool includeExecutable;
+    // 内存属性过滤
+    MemoryFilter memFilter;
+
     bool percentMode = false;
     bool OnlySimpleValue = false;
 

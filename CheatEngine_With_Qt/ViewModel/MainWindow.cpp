@@ -2,6 +2,7 @@
 
 #include "ViewModel\MainWindow.h"
 #include "ui_CheatEngine_With_Qt.h"
+// #include "ViewModel\Add_Or_Change_Address_Dialog.h"
 #include "ViewModel\address_list_model.h"
 #include "ViewModel\process_dialog.h"
 #include "process\process_manager.h"
@@ -562,8 +563,9 @@ ScanRequest MainWindow::buildScanRequest(ScanMode mode) const
     }
 
     // ===== 内存属性过滤 =====
-    req.onlyWritable = ui->checkBox_able_to_write->isChecked();
-    req.includeExecutable = ui->checkBox_able_to_execute->isChecked();
+    req.memFilter.Writable      = ui->checkBox_able_to_write->isChecked();
+    req.memFilter.Executable        = ui->checkBox_able_to_execute->isChecked();
+    req.memFilter.CopyOnWrite       = ui->checkBox_copy_on_write->isChecked();
 
 
     // ===== 其他 UI 选项（已有但未赋值） =====
@@ -1005,6 +1007,7 @@ void MainWindow::refreshUiControls()
     ui->comboBox_process_module_List->setEnabled(ctx.comboModuleEnabled);
     ui->checkBox_able_to_execute->setEnabled(ctx.comboModuleEnabled);
     ui->checkBox_able_to_write->setEnabled(ctx.comboModuleEnabled);
+    ui->checkBox_copy_on_write->setEnabled(ctx.comboModuleEnabled);
     ui->pushButton_new_find->setEnabled(ctx.newScanButtonEnabled);
     ui->pushButton_next_find->setEnabled(ctx.nextScanButtonEnabled);
     ui->pushButton_new_find->setText(ctx.newScanText);
