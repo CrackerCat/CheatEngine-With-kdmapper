@@ -63,15 +63,18 @@ private slots:
 private:
     /// 单个指针层级的数据 + UI 控件
     struct PointerLevelWidgets {
-        QWidget*    container  = nullptr;   // widget_pointer_level_N
-        QLabel*     resultLabel = nullptr;  // label_offset_compute_value (显示 ???+?=???)
-        QLineEdit*  offsetEdit = nullptr;   // lineEdit_offset_Value
-        QPushButton* decBtn    = nullptr;   // pushButton_decrease_offset
-        QPushButton* incBtn    = nullptr;   // pushButton_increase_offset
+        QWidget*    container   = nullptr;   // widget_pointer_level_N
+        QLabel*     levelLabel  = nullptr;   // label_pointer_levelX (" N 级指针")
+        QLabel*     resultLabel = nullptr;   // label_offset_compute_value (显示 ???+?=???)
+        QLineEdit*  offsetEdit  = nullptr;   // lineEdit_offset_Value
+        QPushButton* decBtn     = nullptr;   // pushButton_decrease_offset
+        QPushButton* incBtn     = nullptr;   // pushButton_increase_offset
 
-        int64_t  offset    = 0;       // 当前解析的偏移值
-        uint64_t derefAddr = 0;       // 该级解引用后的地址
+        int64_t  offset          = 0;   // 当前解析的偏移值
+        uint64_t pointerValue    = 0;   // 从内存 [currentAddr] 读取到的指针值
+        uint64_t computedAddr    = 0;   // 该级最终地址 = pointerValue + offset（即下一级的 currentAddr）
     };
+
 
     void setupUi();
     void populateDataTypeCombo();

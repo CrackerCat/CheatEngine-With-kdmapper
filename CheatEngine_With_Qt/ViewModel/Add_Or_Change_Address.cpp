@@ -30,8 +30,8 @@ Add_Or_Change_Address_Dialog::Add_Or_Change_Address_Dialog(
 
     // 保存初始地址文本，取消指针时恢复
     m_originalAddressText = m_ui->lineEdit_address->text();
-    // 默认 lineEdit_address_pointer 也显示原始地址（与 CE 一致）
-    m_ui->lineEdit_address_pointer->setText(m_originalAddressText);
+    // 默认 lineEdit_base_pointer 也显示原始地址（与 CE 一致）
+    m_ui->lineEdit_base_pointer->setText(m_originalAddressText);
 
     m_ui->lineEdit_description->setText(desc);
     onAddressTextChanged(m_ui->lineEdit_address->text());
@@ -50,7 +50,7 @@ void Add_Or_Change_Address_Dialog::setupUi()
 
     // ── 限定地址输入为Hex/Decimal ──
     m_ui->lineEdit_address->setPlaceholderText("0x12345678");
-    m_ui->lineEdit_address_pointer->setPlaceholderText("模块名+0x1234 或 0x12345678");
+    m_ui->lineEdit_base_pointer->setPlaceholderText("模块名+0x1234 或 0x12345678");
 
     // ── comboBox_encoding ──
     m_ui->comboBox_encoding->clear();
@@ -95,7 +95,7 @@ void Add_Or_Change_Address_Dialog::setupUi()
             this, &Add_Or_Change_Address_Dialog::onPointerCheckChanged);
 
     // ── 基础指针地址变化 → 刷新指针计算值 ──
-    connect(m_ui->lineEdit_address_pointer, &QLineEdit::textChanged,
+    connect(m_ui->lineEdit_base_pointer, &QLineEdit::textChanged,
             this, &Add_Or_Change_Address_Dialog::onPointerAddressChanged);
 
     // ── 第 1 级指针的控件信号（内置在 UI 中） ──
@@ -103,12 +103,14 @@ void Add_Or_Change_Address_Dialog::setupUi()
     {
         PointerLevelWidgets lvl;
         lvl.container   = m_ui->widget_pointer_level_1;
-        lvl.offsetEdit  = m_ui->lineEdit_offset_Value;
+        lvl.levelLabel  = m_ui->label_pointer_level1;
+        lvl.offsetEdit  = m_ui->lineEdit_level_pointer;
         lvl.decBtn      = m_ui->pushButton_decrease_offset;
         lvl.incBtn      = m_ui->pushButton_increase_offset;
-        lvl.resultLabel = m_ui->label_offset_compute_value;
+        lvl.resultLabel = m_ui->label_level_pointer_offset_compute_value;
         m_pointerLevels.push_back(lvl);
     }
+
     rebuildPointerLevelSignals(0);
 
     // ── 添加/移除偏移按钮 ──
@@ -156,8 +158,8 @@ void Add_Or_Change_Address_Dialog::onAddressTextChanged(const QString& text)
     Q_UNUSED(text);
     refreshComputedValue();
 
-    // 注意：不向 lineEdit_address_pointer 同步。
-    // 指针模式开启时 lineEdit_address_pointer 固定为原始地址（m_originalAddressText），
+    // 注意：不向 lineEdit_base_pointer 同步。
+    // 指针模式开启时 lineEdit_base_pointer 固定为原始地址（m_originalAddressText），
     // 与官方 CE 行为一致。
 }
 
@@ -175,13 +177,20 @@ void Add_Or_Change_Address_Dialog::onPointerCheckChanged(bool checked)
     m_ui->widget_pointer_container->setVisible(checked);
 
     if (checked) {
-        // 勾选指针：禁用地址输入框，指针基址固定为原始地址（m_originalAddressText）
+        // ★ 勾选指针：将当前地址复制到基础指针输入框，然后禁用地址输入框
+        //   沿用 CE 官方行为：开启指针时，地址栏的值填入基础指针框
+        QString currentAddress = m_ui->lineEdit_address->text();
         m_ui->lineEdit_address->blockSignals(true);
         m_ui->lineEdit_address->setEnabled(false);
-        m_ui->lineEdit_address_pointer->blockSignals(true);
-        m_ui->lineEdit_address_pointer->setText(m_originalAddressText);
-        m_ui->lineEdit_address_pointer->blockSignals(false);
+
+        m_ui->lineEdit_base_pointer->blockSignals(true);
+        m_ui->lineEdit_base_pointer->setText(currentAddress);
+        m_ui->lineEdit_base_pointer->blockSignals(false);
+
         m_ui->lineEdit_address->blockSignals(false);
+
+        // 保存当前地址文本，用于取消指针时恢复
+        m_originalAddressText = currentAddress;
 
         refreshPointerValue();
     } else {
@@ -193,6 +202,7 @@ void Add_Or_Change_Address_Dialog::onPointerCheckChanged(bool checked)
         refreshComputedValue();
     }
 }
+
 
 void Add_Or_Change_Address_Dialog::onPointerAddressChanged(const QString& text)
 {
@@ -290,7 +300,7 @@ void Add_Or_Change_Address_Dialog::onDeleteOffset()
 void Add_Or_Change_Address_Dialog::createPointerLevelWidget(int levelIndex)
 {
     // 复制第 1 级容器的样式创建新的一级
-    // 新的 widget 插入到 horizontalLayout_2（lineEdit_address_pointer 所在行）之前
+    // 新的 widget 插入到 horizontalLayout_2（lineEdit_base_pointer 所在行）之前
 
     // 创建新的容器 widget
     QWidget* newContainer = new QWidget(m_ui->widget_pointer_container);
@@ -301,9 +311,15 @@ void Add_Or_Change_Address_Dialog::createPointerLevelWidget(int levelIndex)
     hLayout->setContentsMargins(0, 0, 0, 0);
     hLayout->setSpacing(0);
 
+    // ★ 创建级指针标签: " N 级指针"（levelIndex 从 0 开始，显示 +1）
+    QLabel* levelLabel = new QLabel(
+        QStringLiteral(" %1 级指针").arg(levelIndex + 1), newContainer);
+    levelLabel->setSizePolicy(m_ui->label_pointer_level1->sizePolicy());
+
     // 创建减少按钮
     QPushButton* decBtn = new QPushButton(QStringLiteral("<"), newContainer);
     decBtn->setMaximumSize(30, 16777215);
+
     decBtn->setSizePolicy(m_ui->pushButton_decrease_offset->sizePolicy());
     decBtn->setEnabled(true);
     decBtn->setCheckable(false);
@@ -311,7 +327,7 @@ void Add_Or_Change_Address_Dialog::createPointerLevelWidget(int levelIndex)
     // 创建偏移输入
     QLineEdit* offsetEdit = new QLineEdit(newContainer);
     offsetEdit->setMaximumSize(80, 16777215);
-    offsetEdit->setSizePolicy(m_ui->lineEdit_offset_Value->sizePolicy());
+    offsetEdit->setSizePolicy(m_ui->lineEdit_level_pointer->sizePolicy());
     offsetEdit->setValidator(new QIntValidator(this));
     offsetEdit->setText("0");
 
@@ -322,12 +338,13 @@ void Add_Or_Change_Address_Dialog::createPointerLevelWidget(int levelIndex)
 
     // 创建结果标签
     QLabel* resultLabel = new QLabel(QStringLiteral("???+?=???"), newContainer);
-    resultLabel->setSizePolicy(m_ui->label_offset_compute_value->sizePolicy());
+    resultLabel->setSizePolicy(m_ui->label_level_pointer_offset_compute_value->sizePolicy());
 
     // 创建水平弹簧
     QSpacerItem* spacer = new QSpacerItem(10, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
 
     // 组装布局
+    hLayout->addWidget(levelLabel);
     hLayout->addWidget(decBtn);
     hLayout->addWidget(offsetEdit);
     hLayout->addWidget(incBtn);
@@ -339,7 +356,7 @@ void Add_Or_Change_Address_Dialog::createPointerLevelWidget(int levelIndex)
     // verticalLayout_add_pointer 中的顺序:
     //   [0]: widget_pointer_level_1 (内置)
     //   [1...n]: 动态添加的层级
-    //   [n+1]: horizontalLayout_2 (lineEdit_address_pointer)
+    //   [n+1]: horizontalLayout_2 (lineEdit_base_pointer)
     //   [n+2]: horizontalLayout_3 (按钮)
     QVBoxLayout* parentLayout = m_ui->verticalLayout_add_pointer;
     // 插入位置: 在所有动态层级之后, horizontalLayout_2 之前
@@ -349,6 +366,7 @@ void Add_Or_Change_Address_Dialog::createPointerLevelWidget(int levelIndex)
     // 保存到层级列表
     PointerLevelWidgets lvl;
     lvl.container   = newContainer;
+    lvl.levelLabel  = levelLabel;
     lvl.decBtn      = decBtn;
     lvl.offsetEdit  = offsetEdit;
     lvl.incBtn      = incBtn;
@@ -486,7 +504,7 @@ uint64_t Add_Or_Change_Address_Dialog::parseAddressOrModule(const QString& text,
 void Add_Or_Change_Address_Dialog::refreshPointerValue()
 {
     // 解析基础指针地址（支持 "模块名+偏移" 和直接地址）
-    QString ptrText = m_ui->lineEdit_address_pointer->text().trimmed();
+    QString ptrText = m_ui->lineEdit_base_pointer->text().trimmed();
     bool baseOk = false;
     m_pointerBaseAddr = parseAddressOrModule(ptrText, &baseOk);
 
@@ -495,9 +513,11 @@ void Add_Or_Change_Address_Dialog::refreshPointerValue()
         for (auto& lvl : m_pointerLevels) {
             lvl.resultLabel->setText("???+?=???");
             lvl.offset = 0;
-            lvl.derefAddr = 0;
+            lvl.pointerValue = 0;
+            lvl.computedAddr = 0;
         }
-        m_ui->label_offset_compute->setText("->?????");
+
+        m_ui->label_base_pointer_compute_value->setText("->?????");
         return;
     }
 
@@ -505,13 +525,35 @@ void Add_Or_Change_Address_Dialog::refreshPointerValue()
     if (!mem) {
         for (auto& lvl : m_pointerLevels)
             lvl.resultLabel->setText(tr("???+?=???"));
-        m_ui->label_offset_compute->setText(tr("->无进程"));
+        m_ui->label_base_pointer_compute_value->setText(tr("->无进程"));
         return;
     }
 
-    // ---- 逐级解引用 ----
-    uint64_t currentAddr = m_pointerBaseAddr;
+    // ★ 第一步：根据当前数据类型长度读取基础指针值
+    size_t ptrSize = currentDataTypeSize();
+    // 对于指针读取，最小 1 字节，最大不超过 8 字节
+    if (ptrSize > sizeof(uint64_t)) ptrSize = sizeof(uint64_t);
+    if (ptrSize == 0) ptrSize = 8;
 
+    uint64_t basePtrValue = 0;
+    if (!mem->read(m_pointerBaseAddr, &basePtrValue, ptrSize)) {
+        for (auto& lvl : m_pointerLevels) {
+            lvl.pointerValue = 0;
+            lvl.computedAddr = 0;
+            lvl.resultLabel->setText(tr("读取失败"));
+        }
+        m_ui->label_base_pointer_compute_value->setText("->?????");
+        return;
+    }
+
+    // label_base_pointer_compute_value 显示基础指针解引用后的值，用作下一级指针的指针
+    m_ui->label_base_pointer_compute_value->setText(
+        QString("->0x%1").arg(basePtrValue, 16, 16, QChar('0')));
+
+    // 第1级指针以 basePtrValue 为基址
+    uint64_t currentAddr = basePtrValue;
+
+    // ---- 逐级解引用 ----
     for (int i = 0; i < static_cast<int>(m_pointerLevels.size()); ++i) {
         auto& lvl = m_pointerLevels[i];
 
@@ -523,45 +565,52 @@ void Add_Or_Change_Address_Dialog::refreshPointerValue()
         else
             lvl.offset = offsetText.toLongLong(&offOk);
 
-        // 读取当前地址处的指针值（8 字节，支持 64 位进程指针）
-        uint64_t derefValue = 0;
-        if (!mem->read(currentAddr, &derefValue, sizeof(derefValue))) {
-            lvl.derefAddr = 0;
+        // 该级要读取的地址 = currentAddr（来自上一级的 computedAddr）+ 偏移
+        uint64_t readAddr = currentAddr + static_cast<uint64_t>(static_cast<int64_t>(lvl.offset));
+
+        // 根据当前数据类型长度读取指针值
+        uint64_t pointerValue = 0;
+        if (!mem->read(readAddr, &pointerValue, ptrSize)) {
+
+            lvl.pointerValue = 0;
+            lvl.computedAddr = 0;
             lvl.resultLabel->setText(tr("读取失败"));
-            m_ui->label_offset_compute->setText("->?????");
+            m_ui->label_base_pointer_compute_value->setText("->?????");
             return;
         }
 
-        lvl.derefAddr = derefValue;
+        lvl.pointerValue = pointerValue;
 
-        // 计算当前级的最终地址
-        uint64_t computedAddr = lvl.derefAddr + static_cast<uint64_t>(static_cast<int64_t>(lvl.offset));
+        // 当前级计算结果 = 读取到的指针值（下一级将以它为基址继续解引用）
+        lvl.computedAddr = pointerValue;
 
-        // 更新显示: "0x7FF6+0x0=0x7FF6..."
+        // ★ 更新 levelLabel: " N 级指针 = 0x[pointerValue]"
+        lvl.levelLabel->setText(
+            QStringLiteral(" %1 级指针 = 0x%2")
+                .arg(i + 1)
+                .arg(pointerValue, 16, 16, QChar('0')));
+
+        // 更新显示: "0x[currentAddr]+0x[offset]=0x[pointerValue]"
+        // 含义：从 [currentAddr + offset] 地址读取到 pointerValue
+        //       下一级以 pointerValue 为基址继续解引用
         QString offsetHex = (lvl.offset >= 0)
             ? QString("0x%1").arg(lvl.offset, 0, 16)
             : QString("-0x%1").arg(-lvl.offset, 0, 16);
 
         lvl.resultLabel->setText(
             QString("0x%1+%2=0x%3")
-                .arg(lvl.derefAddr, 0, 16)
+                .arg(currentAddr, 0, 16)
                 .arg(offsetHex)
-                .arg(computedAddr, 16, 16, QChar('0')));
+                .arg(pointerValue, 16, 16, QChar('0')));
 
-        // 下一级以当前计算地址为基址
-        currentAddr = computedAddr;
+        // ★ 下一级以当前级的 pointerValue 为基址（不再加偏移，偏移已在本级用掉）
+        currentAddr = lvl.computedAddr;
+
     }
 
-    // 最后一级的计算结果 = 最终地址
+    // 最后一级的 pointerValue = 最终地址（不含额外的偏移）
+    // 最后一级的结果已经被 offset 修正过（因为读取的是 [previousAddr + offset]）
     m_computedFinalAddr = currentAddr;
-
-    // 更新 label_offset_compute 显示最终解引用地址
-    // 取最后一级的 derefAddr 显示
-    if (!m_pointerLevels.empty()) {
-        const auto& lastLvl = m_pointerLevels.back();
-        m_ui->label_offset_compute->setText(
-            QString("->0x%1").arg(lastLvl.derefAddr, 16, 16, QChar('0')));
-    }
 
     // 更新 lineEdit_address 显示最终计算地址
     m_ui->lineEdit_address->setText(
@@ -816,10 +865,10 @@ bool Add_Or_Change_Address_Dialog::validateInput()
 
     // 勾选了指针时，基础指针地址不能为空
     if (m_ui->checkBox_pointer->isChecked()) {
-        QString ptrText = m_ui->lineEdit_address_pointer->text().trimmed();
+        QString ptrText = m_ui->lineEdit_base_pointer->text().trimmed();
         if (ptrText.isEmpty()) {
             QMessageBox::warning(this, tr("错误"), tr("指针模式：基础指针地址不能为空。"));
-            m_ui->lineEdit_address_pointer->setFocus();
+            m_ui->lineEdit_base_pointer->setFocus();
             return false;
         }
         // 验证地址/模块解析
@@ -827,7 +876,7 @@ bool Add_Or_Change_Address_Dialog::validateInput()
         parseAddressOrModule(ptrText, &parseOk);
         if (!parseOk) {
             QMessageBox::warning(this, tr("错误"), tr("无效的基址格式。支持：0x地址、十进制数字、或\"模块名+0x偏移\"。"));
-            m_ui->lineEdit_address_pointer->setFocus();
+            m_ui->lineEdit_base_pointer->setFocus();
             return false;
         }
     }

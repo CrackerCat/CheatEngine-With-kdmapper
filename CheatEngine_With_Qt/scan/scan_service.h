@@ -28,6 +28,11 @@ public:
 	bool hasResults() const;
 	int  totalResults() const;
 
+	/// 获取潜在地址总数（仅用于 UnknownInitial 首次扫描，节省内存）
+	int  potentialAddressCount() const;
+	/// 是否为 UnknownInitial 扫描模式
+	bool isUnknownInitialMode() const;
+
 	ScanResultViewModel* getResultViewModel() const { return m_viewModel.get(); }
 	ScanDataProvider* getDataProvider() const { return m_dataProvider.get(); }
 

@@ -105,7 +105,17 @@ void MainWindow::updateCountLabels()
     // 获取当前视图模型显示的条目数
     int shown = m_resultModel->rowCount();
 
-    ui->label_scan_result->setText(QString(tr("找到总地址: %1 显示地址: %2")).arg(total).arg(shown));
+    if (m_scanService->isUnknownInitialMode()) {
+        int potential = m_scanService->potentialAddressCount();
+        if (potential > 0) {
+            // ★ 未知初始值模式：label 显示潜在地址总数
+            ui->label_scan_result->setText(QString(tr("未知初始值扫描 - 潜在地址数: %1 显示地址: %2")).arg(potential).arg(shown));
+        } else {
+            ui->label_scan_result->setText(QString(tr("再次扫描结果数: %1 显示地址: %2")).arg(total).arg(shown));
+        }
+    } else {
+        ui->label_scan_result->setText(QString(tr("找到总地址: %1 显示地址: %2")).arg(total).arg(shown));
+    }
 }
 
 
@@ -923,13 +933,37 @@ void MainWindow::onNextScan()
     
 
 
-	ScanRequest req = buildScanRequest(ScanMode::Next);
+    ScanRequest req = buildScanRequest(ScanMode::Next);
 
-    if (std::holds_alternative<ValueParams>(req.params)) {
-        if (std::get<ValueParams>(req.params).value1 == 0 &&
-            ui->lineEdit_ValueInput->text().isEmpty()) {
-            QMessageBox::warning(this, tr("错误"), tr("无效的输入数值."));
-            return;
+    // ★ 只对需要用户输入数值的再次扫描类型做验证
+    // 像"变动的值""未变动的值""增加的值""减少的值""对比首次扫描"等不需要输入，跳过验证
+    {
+        bool needsInput = false;
+        auto dataType = parseDataTypeFromUI();
+        if (isStringType(dataType) || dataType == ScanDataType::ByteArray) {
+            needsInput = true;
+        } else if (std::holds_alternative<ValueParams>(req.params)) {
+            switch (req.nextType) {
+            case NextScanType::Equal:
+            case NextScanType::NotEqual:
+            case NextScanType::Between:
+            case NextScanType::IncreasedBy:
+            case NextScanType::DecreasedBy:
+            case NextScanType::EndsWith:
+                needsInput = true;
+                break;
+            default:
+                needsInput = false; // Changed/Unchanged/Increased/Decreased/Compare_to_First_Scan 无需输入
+                break;
+            }
+        }
+
+        if (needsInput && std::holds_alternative<ValueParams>(req.params)) {
+            if (std::get<ValueParams>(req.params).value1 == 0 &&
+                ui->lineEdit_ValueInput->text().trimmed().isEmpty()) {
+                QMessageBox::warning(this, tr("错误"), tr("无效的输入数值."));
+                return;
+            }
         }
     }
 
@@ -1063,7 +1097,16 @@ void MainWindow::onScanCompleted()
     }
 
     ui->progressBar->setVisible(false);
-    statusBar()->showMessage(tr("扫描完成，找到 %1 个结果").arg(m_scanService->totalResults()), 3000);
+    if (m_scanService->isUnknownInitialMode()) {
+        int count = m_scanService->potentialAddressCount();
+        if (count > 0) {
+            statusBar()->showMessage(tr("未知初始值扫描完成，潜在地址数: %1").arg(count), 5000);
+        } else {
+            statusBar()->showMessage(tr("再次扫描完成，找到 %1 个结果").arg(m_scanService->totalResults()), 3000);
+        }
+    } else {
+        statusBar()->showMessage(tr("扫描完成，找到 %1 个结果").arg(m_scanService->totalResults()), 3000);
+    }
 }
 
 // ==================== 进度变化槽 ====================

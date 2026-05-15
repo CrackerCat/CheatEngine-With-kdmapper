@@ -38,6 +38,7 @@ public:
 		cancel();
 		m_progress.store(0);
 		m_totalItems.store(0);
+		m_potential_Address.store(0);
 	}
 
 	bool isCancelled() const { return m_cancel.load(std::memory_order_acquire); }
@@ -46,6 +47,7 @@ public:
 	{
 		return m_totalItems.load();
 	}
+	int potentialAddressCount() const { return m_potential_Address.load(std::memory_order_relaxed); }
 
 
 private:
@@ -88,6 +90,13 @@ private:
 		const std::vector<ScanResult>& oldBatch,
         std::shared_ptr<IProcessMemorySnapshot> currentSnapshot,
         std::shared_ptr<IProcessMemorySnapshot> previousSnapshot,
+		std::shared_ptr<AdaptiveCachePool<ScanResult>> outCache);
+
+	/// 全内存再次扫描（UnknownInitial 专用：遍历整个区域，对每个对齐地址应用 next-scan 条件）
+	template <typename T>
+	void taskFullScanWithNextCondition(const ScanRequest& req, MemoryRegion region,
+		std::shared_ptr<IProcessMemorySnapshot> currentSnapshot,
+		std::shared_ptr<IProcessMemorySnapshot> previousSnapshot,
 		std::shared_ptr<AdaptiveCachePool<ScanResult>> outCache);
 
 	// 特殊类型匹配算法（字符串/AOB内部通用）

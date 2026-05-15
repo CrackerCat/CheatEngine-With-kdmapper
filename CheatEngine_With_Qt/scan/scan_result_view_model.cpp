@@ -19,19 +19,35 @@ void ScanResultViewModel::rebuildFilteredIndices() {
 
 	m_filteredIndices.clear();
 
+	// ★ 使用批量读取代替单次逐行读取，池模式下大幅减少磁盘 I/O
+	constexpr size_t BATCH_SIZE = 4096;
+
 	if (m_filterModuleBase != 0 && m_filterModuleSize > 0) {
 		uint64_t filterEnd = m_filterModuleBase + m_filterModuleSize;
-		for (size_t i = 0; i < total; ++i) {
-			uint64_t addr = m_repo->getAddressAtIndex(i);
-			if (addr >= m_filterModuleBase && addr < filterEnd) {
-				m_filteredIndices.push_back(i);
+
+		// 分批读取地址并过滤
+		for (size_t batchStart = 0; batchStart < total; batchStart += BATCH_SIZE) {
+			size_t batchCount = std::min(BATCH_SIZE, total - batchStart);
+			auto addresses = m_repo->readAddressRange(batchStart, batchCount);
+			for (size_t j = 0; j < addresses.size(); ++j) {
+				if (addresses[j] >= m_filterModuleBase && addresses[j] < filterEnd) {
+					m_filteredIndices.push_back(batchStart + j);
+				}
 			}
 		}
 	} else {
-		// 无过滤：建立全量索引
-		m_filteredIndices.reserve(total);
-		for (size_t i = 0; i < total; ++i) {
-			m_filteredIndices.push_back(i);
+		// 无过滤：建立全量索引（池模式下只保留前 MAX_DISPLAY 个以避免内存撑爆）
+		if (total > static_cast<size_t>(MAX_DISPLAY)) {
+			// ★ 海量结果无过滤时，只保留前 MAX_DISPLAY 个
+			m_filteredIndices.reserve(MAX_DISPLAY);
+			for (int i = 0; i < MAX_DISPLAY; ++i) {
+				m_filteredIndices.push_back(static_cast<size_t>(i));
+			}
+		} else {
+			m_filteredIndices.reserve(total);
+			for (size_t i = 0; i < total; ++i) {
+				m_filteredIndices.push_back(i);
+			}
 		}
 	}
 }

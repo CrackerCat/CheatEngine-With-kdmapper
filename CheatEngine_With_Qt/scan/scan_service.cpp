@@ -29,13 +29,19 @@ ScanService::~ScanService() = default;
 void ScanService::startScan(const ScanRequest& request) {
 	if (m_scanning.exchange(true)) return;
 
-	// ★ 在启动新扫描前，保存当前结果作为"上一次扫描"快照
+	stopAutoRefresh();
+	m_cancelling = false;
+
+	// ★ 关键：在保存"上一次扫描"快照之前，先提取再次扫描所需的当前结果
+	std::vector<ScanResult> currentResults;
+	if (request.mode == ScanMode::Next) {
+		currentResults = m_repository->getResults();
+	}
+
+	// ★ 保存当前结果作为"上一次扫描"快照（必须在提取 currentResults 之后）
 	if (m_repository && m_repository->getResultCount() > 0) {
 		m_repository->saveAsPreviousResults();
 	}
-
-	stopAutoRefresh();
-	m_cancelling = false;
 
 	if (request.mode == ScanMode::First) {
 		// 对于未知初始值扫描，设置预期行为
@@ -57,11 +63,6 @@ void ScanService::startScan(const ScanRequest& request) {
 		emit progressChanged(m_engine->progress(), m_engine->totalItems());
 		});
 	m_progressTimer->start(100);
-
-	std::vector<ScanResult> currentResults;
-	if (request.mode == ScanMode::Next) {
-		currentResults = m_repository->getResults();
-	}
 
 #ifdef _DEBUG
 	auto pack = m_engine->execute(request, currentResults);
@@ -106,17 +107,27 @@ bool ScanService::isScanning() const
 
 bool ScanService::hasResults() const
 {
-	if (m_scanning.load() && m_expectEmptyResults) return true;
+	// UnknownInitial 模式（无论是否正在扫描）：认为有结果
+	if (m_expectEmptyResults.load()) return true;
 
 	// 扫描结束后，只要仓库里有地址，就认为成功
-	// 在修改了 taskFirstScan 后，UnknownInitial 也会产生大量地址
-	return m_repository->getResultCount() > 0;
+	return m_repository && m_repository->getResultCount() > 0;
 }
 
 int ScanService::totalResults() const
 {
 	return static_cast<int>(m_repository->getResultCount());
 	//return m_engine->totalItems();
+}
+
+int ScanService::potentialAddressCount() const
+{
+	return m_engine ? m_engine->potentialAddressCount() : 0;
+}
+
+bool ScanService::isUnknownInitialMode() const
+{
+	return m_expectEmptyResults.load();
 }
 
 void ScanService::startAutoRefresh(int intervalMs)
@@ -150,7 +161,10 @@ void ScanService::clear()
 	// 4. 重置引擎状态（原子变量重置）
 	m_engine->clear();
 
-	// 5. 通知 UI
+	// 5. 重置 UnknownInitial 标志
+	m_expectEmptyResults = false;
+
+	// 6. 通知 UI
 	m_viewModel->onRepositoryReplaced();
 }
 
@@ -166,9 +180,14 @@ void ScanService::reset()
 void ScanService::onScanFinished(ScanEngine::ScanReport pack, ScanMode mode) {
 	if (m_progressTimer) { m_progressTimer->stop(); m_progressTimer->deleteLater(); }
 
-	// 1. 结果分发：将自适应缓存中的数据存入仓库
-	if (pack.results) {
-		m_repository->replaceAllResults(pack.results->readChunk(0, pack.results->total_size()));
+	// 1. 结果分发：将池中的结果存入仓库（池 = 磁盘后备存储，不全部加载到内存）
+	if (pack.results && pack.results->total_size() > 0) {
+		m_repository->replaceAllResultsFromPool(pack.results);
+	}
+
+	// 如果此次扫描产生了实际地址结果，退出 UnknownInitial 模式
+	if (m_repository->getResultCount() > 0) {
+		m_expectEmptyResults = false;
 	}
 
 	//m_repository->setMetadata(report.metadata);

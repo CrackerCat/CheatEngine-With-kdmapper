@@ -46,39 +46,55 @@ void ScanEngine::dispatchScan(const ScanRequest& request, const std::vector<Scan
 	std::vector<std::future<void>> futures;
 
 	if (request.mode == ScanMode::First) {
-		m_totalItems.store(static_cast<int>(regions.size()));
-		for (const auto& memory_region_section : regions) {
-
-// #ifdef _DEBUG
-// 			taskFirstScan<T>(request, memory_region_section, currentSnap, outCache);
-//  // _DEBUG
-// #else
-			futures.push_back(GlobalThreadPool::instance().enqueue([this, request, memory_region_section, currentSnap, outCache] {
-				taskFirstScan<T>(request, memory_region_section, currentSnap, outCache);
-				}));
-// #endif
+		// ── UnknownInitial 首次扫描：只计数，不存地址 ──
+		if (request.firstType == ScanType::UnknownInitial) {
+			m_totalItems.store(static_cast<int>(regions.size()));
+			m_potential_Address.store(0);
+			for (const auto& memory_region_section : regions) {
+				// 直接在此计数，无需提交到 outCache，避免海量地址占用内存
+				size_t count = memory_region_section.size / request.alignment;
+				m_potential_Address.fetch_add(static_cast<int>(count), std::memory_order_relaxed);
+				m_progress.fetch_add(1);
+			}
+			m_processSnapshotManager->setFirstSnapshot(currentSnap);
+			m_processSnapshotManager->setPreviousSnapshot(currentSnap);
+		} else {
+			m_totalItems.store(static_cast<int>(regions.size()));
+			for (const auto& memory_region_section : regions) {
+				futures.push_back(GlobalThreadPool::instance().enqueue([this, request, memory_region_section, currentSnap, outCache] {
+					taskFirstScan<T>(request, memory_region_section, currentSnap, outCache);
+					}));
+			}
+			m_processSnapshotManager->setFirstSnapshot(currentSnap);
 		}
-		m_processSnapshotManager->setFirstSnapshot(currentSnap);
 	}
 	else {
-		m_totalItems.store(static_cast<int>(prevResults.size()));
-		const size_t batchSize = 4096;
-
-		for (size_t i = 0; i < prevResults.size(); i += batchSize) {
-			std::vector<ScanResult> batch;
-			size_t end = (std::min)(i + batchSize, prevResults.size());
-			batch.assign(prevResults.begin() + i, prevResults.begin() + end);
-// #ifdef _DEBUG
-// 			taskNextScan<T>(request, batch, currentSnap, prevSnap, outCache);
-// #else 
-
-			futures.push_back(GlobalThreadPool::instance().enqueue(
-				[this, request, batch, currentSnap, prevSnap, outCache] {
-					taskNextScan<T>(request, batch, currentSnap, prevSnap, outCache);
-				}));
-// #endif
+		// ── UnknownInitial 之后的再次扫描：全内存遍历 + next-scan 条件 ──
+		if (prevResults.empty() && m_potential_Address.load() > 0) {
+			m_totalItems.store(static_cast<int>(regions.size()));
+			m_potential_Address.store(0); // 重置，后续再次扫描走常规逻辑
+			for (const auto& memory_region_section : regions) {
+				futures.push_back(GlobalThreadPool::instance().enqueue(
+					[this, request, memory_region_section, currentSnap, prevSnap, outCache] {
+						taskFullScanWithNextCondition<T>(request, memory_region_section, currentSnap, prevSnap, outCache);
+					}));
+			}
+		} else {
+			m_totalItems.store(static_cast<int>(prevResults.size()));
+			const size_t batchSize = 4096;
+			for (size_t i = 0; i < prevResults.size(); i += batchSize) {
+				std::vector<ScanResult> batch;
+				size_t end = (std::min)(i + batchSize, prevResults.size());
+				batch.assign(prevResults.begin() + i, prevResults.begin() + end);
+				futures.push_back(GlobalThreadPool::instance().enqueue(
+					[this, request, batch, currentSnap, prevSnap, outCache] {
+						taskNextScan<T>(request, batch, currentSnap, prevSnap, outCache);
+					}));
+			}
 		}
 	}
+
+
 
 	for (auto& fut : futures) {
 		if (fut.valid()) fut.get();
@@ -170,10 +186,18 @@ void ScanEngine::taskFirstScan(const ScanRequest& request, MemoryRegion region,
 			T target;
 			std::memcpy(&target, &p->value1, sizeof(T));
 			if (isFloatApprox) {
-				// ★ 勾选了"包含近似值" → 使用四舍五入容差 ±0.5（搜 520 时匹配 519.5 ~ 520.5）
-				constexpr T epsilon = static_cast<T>(0.5);
-				T lo = target - epsilon;
-				T hi = target + epsilon;
+				// ★ 勾选了"包含近似值" → 使用 ±5% 相对容差
+				//   对于目标值 1000，范围 [950, 1050]；对于目标值 0.5，范围 [0.475, 0.525]
+				//   相比于固定 ±0.5，百分比容差对大值和小值都更合理
+				constexpr T relativeEpsilon = static_cast<T>(0.01); // ±1%
+				T lo = target * (static_cast<T>(1.0) - relativeEpsilon);
+				T hi = target * (static_cast<T>(1.0) + relativeEpsilon);
+				// 处理目标值为 0 或负数的边界情况，保证至少有一个最小绝对容差
+				T absMin = static_cast<T>(0.0001);
+				if (target >= static_cast<T>(0)) {
+					if (lo < -absMin) lo = static_cast<T>(0);        // 下限不跌破 0（对于正数场景更自然）
+				}
+				if (hi - lo < absMin) { lo = target - absMin; hi = target + absMin; }
 				std::memcpy(&v1, &lo, sizeof(T));
 				std::memcpy(&v2, &hi, sizeof(T));
 			} else {
@@ -229,8 +253,18 @@ void ScanEngine::taskFirstScan(const ScanRequest& request, MemoryRegion region,
 				if (batchResults.size() >= 1024) { outCache->push_back_batch(batchResults); batchResults.clear(); }
 			}
 		}
+		else if (request.firstType == ScanType::Between) {
+			// Between 类型：使用 SIMD 范围扫描加速
+			std::vector<uint64_t> matchedAddrs;
+			SimdScanner::scanMemoryBlockForRange<T>(memBuf.data(), toRead,
+				region.base + baseOffset, step, v1, v2, matchedAddrs);
+			for (auto addr : matchedAddrs) {
+				batchResults.push_back({ addr });
+				if (batchResults.size() >= 1024) { outCache->push_back_batch(batchResults); batchResults.clear(); }
+			}
+		}
 		else {
-			// Between 类型：标量扫描
+			// 浮点数近似值 ExactValue 或其他回退：标量区间扫描
 			for (size_t off = 0; off + sizeof(T) <= toRead; off += step) {
 				T curVal;
 				std::memcpy(&curVal, memBuf.data() + off, sizeof(T));
@@ -266,10 +300,15 @@ void ScanEngine::taskNextScan(const ScanRequest& request,
 			const bool useApprox = request.containApproximateValue
 				&& (request.nextType == NextScanType::Equal || request.nextType == NextScanType::NotEqual);
 			if (useApprox) {
-				// ★ 勾选了"包含近似值" → 使用四舍五入容差 ±0.5（搜 520 时匹配 519.5 ~ 520.5）
-				constexpr T epsilon = static_cast<T>(0.5);
-				T lo = target - epsilon;
-				T hi = target + epsilon;
+				// ★ 勾选了"包含近似值" → 使用 ±5% 相对容差
+				constexpr T relativeEpsilon = static_cast<T>(0.05); // ±5%
+				T lo = target * (static_cast<T>(1.0) - relativeEpsilon);
+				T hi = target * (static_cast<T>(1.0) + relativeEpsilon);
+				T absMin = static_cast<T>(0.0001);
+				if (target >= static_cast<T>(0)) {
+					if (lo < -absMin) lo = static_cast<T>(0);
+				}
+				if (hi - lo < absMin) { lo = target - absMin; hi = target + absMin; }
 				std::memcpy(&v1, &lo, sizeof(T));
 				std::memcpy(&v2, &hi, sizeof(T));
 			} else {
@@ -353,7 +392,262 @@ void ScanEngine::taskNextScan(const ScanRequest& request,
 }
 
 
+template <typename T>
+void ScanEngine::taskFullScanWithNextCondition(const ScanRequest& request, MemoryRegion region,
+	std::shared_ptr<IProcessMemorySnapshot> currentSnapshot,
+	std::shared_ptr<IProcessMemorySnapshot> previousSnapshot,
+	std::shared_ptr<AdaptiveCachePool<ScanResult>> outCache)
+{
+	if (m_cancel.load()) return;
+
+	const size_t step = request.alignment;
+	const size_t scalarSize = sizeof(T);
+	const size_t chunkSize = 128 * 1024; // 128KB 分块（更大块更有利于 SIMD）
+	std::vector<uint8_t> memBuf(chunkSize + scalarSize);
+	std::vector<uint8_t> prevBuf(chunkSize + scalarSize); // 存放上一次/首次快照的批量数据
+	std::vector<ScanResult> batchResults;
+	batchResults.reserve(4096);
+
+	auto firstSnap = m_processSnapshotManager->getFirstProcessMemeorySnapshot();
+
+	// ===== 解析参数 v1/v2 =====
+	auto* p = std::get_if<ValueParams>(&request.params);
+	T v1 = 0, v2 = 0;
+	bool useRangeForEqualNotEqual = false; // 浮点数近似匹配时用范围比较
+	if (p) {
+		if constexpr (std::is_floating_point_v<T>) {
+			T target;
+			std::memcpy(&target, &p->value1, sizeof(T));
+			const bool useApprox = request.containApproximateValue
+				&& (request.nextType == NextScanType::Equal || request.nextType == NextScanType::NotEqual);
+			if (useApprox) {
+				useRangeForEqualNotEqual = true;
+				constexpr T relativeEpsilon = static_cast<T>(0.05);
+				T lo = target * (static_cast<T>(1.0) - relativeEpsilon);
+				T hi = target * (static_cast<T>(1.0) + relativeEpsilon);
+				T absMin = static_cast<T>(0.0001);
+				if (target >= static_cast<T>(0)) {
+					if (lo < -absMin) lo = static_cast<T>(0);
+				}
+				if (hi - lo < absMin) { lo = target - absMin; hi = target + absMin; }
+				std::memcpy(&v1, &lo, sizeof(T));
+				std::memcpy(&v2, &hi, sizeof(T));
+			} else {
+				std::memcpy(&v1, &target, sizeof(T));
+				std::memcpy(&v2, &p->value2, sizeof(T));
+			}
+		} else {
+			std::memcpy(&v1, &p->value1, sizeof(T));
+			std::memcpy(&v2, &p->value2, sizeof(T));
+		}
+	}
+
+	// ===== 判断走哪条快速路 =====
+	enum class SimdPath {
+		None,                  // 标量回退（IncreasedBy / DecreasedBy）
+		CompareWithTarget,     // Equal / NotEqual → 用 SimdScanner::scanMemoryBlockForMatches
+		RangeFilter,           // Between / 浮点近似 Equal/NotEqual → 用 scanMemoryBlockForRange
+		CompareTwoBuffers      // Changed / Unchanged / Increased / Decreased / Compare_to_First_Scan
+		                       // → 用 compareTwoMemoryBlocks
+	};
+	SimdPath simdPath = SimdPath::None;
+	bool needsPrevBuf = false;
+
+	switch (request.nextType) {
+	case NextScanType::Equal:
+		if constexpr (std::is_floating_point_v<T>) {
+			simdPath = useRangeForEqualNotEqual ? SimdPath::RangeFilter : SimdPath::CompareWithTarget;
+		} else {
+			simdPath = SimdPath::CompareWithTarget;
+		}
+		break;
+	case NextScanType::NotEqual:
+		if constexpr (std::is_floating_point_v<T>) {
+			simdPath = useRangeForEqualNotEqual ? SimdPath::RangeFilter : SimdPath::CompareWithTarget;
+		} else {
+			simdPath = SimdPath::CompareWithTarget;
+		}
+		break;
+	case NextScanType::Between:
+		simdPath = SimdPath::RangeFilter;
+		break;
+	case NextScanType::Changed:   simdPath = SimdPath::CompareTwoBuffers; needsPrevBuf = true; break;
+	case NextScanType::Unchanged: simdPath = SimdPath::CompareTwoBuffers; needsPrevBuf = true; break;
+	case NextScanType::Increased: simdPath = SimdPath::CompareTwoBuffers; needsPrevBuf = true; break;
+	case NextScanType::Decreased: simdPath = SimdPath::CompareTwoBuffers; needsPrevBuf = true; break;
+	case NextScanType::Compare_to_First_Scan: simdPath = SimdPath::CompareTwoBuffers; needsPrevBuf = true; break;
+		// IncreasedBy / DecreasedBy → SimdPath::None（标量回退，但会整块读取 prevBuf 消除虚拟调用）
+	case NextScanType::IncreasedBy: simdPath = SimdPath::None; needsPrevBuf = true; break;
+	case NextScanType::DecreasedBy: simdPath = SimdPath::None; needsPrevBuf = true; break;
+	default: break;
+	}
+
+	// Pre-allocate target buffer for CompareWithTarget path
+	std::vector<uint8_t> targetBuf;
+	if (simdPath == SimdPath::CompareWithTarget) {
+		targetBuf.resize(chunkSize + scalarSize);
+	}
+
+	for (size_t baseOffset = 0; baseOffset < region.size && !m_cancel.load(); baseOffset += chunkSize) {
+		size_t toRead = (std::min)(chunkSize, region.size - baseOffset);
+		uint64_t chunkBase = region.base + baseOffset;
+
+		// ★ 批量读取当前快照内存（vs 逐地址虚拟调用）
+		if (!currentSnapshot->readData(chunkBase, memBuf.data(), toRead)) continue;
+
+		// ★ 批量读取上一次/首次快照（vs 逐地址虚拟调用 * 数十亿次）
+		if (needsPrevBuf) {
+			auto* srcSnap = (request.nextType == NextScanType::Compare_to_First_Scan) ? firstSnap.get() : previousSnapshot.get();
+			if (!srcSnap || !srcSnap->readData(chunkBase, prevBuf.data(), toRead)) continue;
+		}
+
+		// ===== SIMD 快速路径 =====
+		if (simdPath == SimdPath::CompareWithTarget) {
+			// 填充目标值缓冲区
+			T targetVal = v1;
+			for (size_t i = 0; i < toRead; i += scalarSize)
+				std::memcpy(targetBuf.data() + i, &targetVal, scalarSize);
+
+			SimdOp op = (request.nextType == NextScanType::Equal) ? SimdOp::Equal : SimdOp::NotEqual;
+			std::vector<uint64_t> matched;
+			SimdScanner::scanMemoryBlockForMatches<T>(
+				memBuf.data(), targetBuf.data(), toRead, chunkBase, step, op, matched);
+
+			for (auto addr : matched) {
+				batchResults.push_back({ addr });
+				if (batchResults.size() >= 4096) {
+					outCache->push_back_batch(batchResults);
+					batchResults.clear();
+				}
+			}
+		}
+		else if (simdPath == SimdPath::RangeFilter) {
+			// ★ 注意：浮点数 NotEqual 近似模式需要的是"不在 [v1,v2] 内"
+			//   但 SIMD 范围扫描只能找"在范围内"的，NotEqual 需要取补
+			//   所以我们先用 range 找匹配的，然后用 std::vector<uint64_t> 收集再反转...
+			//   但那样性能反而更差。对于 NotEqual 近似模式，仍然走标量回退。
+			if constexpr (std::is_floating_point_v<T>) {
+				if (request.nextType == NextScanType::NotEqual) {
+					// ★ NotEqual 近似模式：标量回退（范围取补不好 SIMD）
+					for (size_t off = 0; off + scalarSize <= toRead; off += step) {
+						if (m_cancel.load()) break;
+						T curVal;
+						std::memcpy(&curVal, memBuf.data() + off, sizeof(T));
+						if (curVal < v1 || curVal > v2) {
+							batchResults.push_back({ chunkBase + off });
+							if (batchResults.size() >= 4096) {
+								outCache->push_back_batch(batchResults);
+								batchResults.clear();
+							}
+						}
+					}
+				} else {
+					std::vector<uint64_t> matched;
+					SimdScanner::scanMemoryBlockForRange<T>(
+						memBuf.data(), toRead, chunkBase, step, v1, v2, matched);
+					for (auto addr : matched) {
+						batchResults.push_back({ addr });
+						if (batchResults.size() >= 4096) {
+							outCache->push_back_batch(batchResults);
+							batchResults.clear();
+						}
+					}
+				}
+			} else {
+				// 整数 Between
+				std::vector<uint64_t> matched;
+				SimdScanner::scanMemoryBlockForRange<T>(
+					memBuf.data(), toRead, chunkBase, step, v1, v2, matched);
+				for (auto addr : matched) {
+					batchResults.push_back({ addr });
+					if (batchResults.size() >= 4096) {
+						outCache->push_back_batch(batchResults);
+						batchResults.clear();
+					}
+				}
+			}
+		}
+		else if (simdPath == SimdPath::CompareTwoBuffers) {
+			// ★ SIMD 批量比较两个内存块（当前 vs 上次/首次快照）
+			SimdOp op;
+			switch (request.nextType) {
+			case NextScanType::Changed:              op = SimdOp::NotEqual; break;
+			case NextScanType::Unchanged:            op = SimdOp::Equal; break;
+			case NextScanType::Increased:            op = SimdOp::Greater; break;
+			case NextScanType::Decreased:            op = SimdOp::Less; break;
+			case NextScanType::Compare_to_First_Scan: op = SimdOp::Equal; break;
+			default:                                 op = SimdOp::Equal; break;
+			}
+
+			std::vector<uint64_t> matched;
+			SimdScanner::compareTwoMemoryBlocks<T>(
+				memBuf.data(), prevBuf.data(), toRead, chunkBase, step, op, matched);
+
+			for (auto addr : matched) {
+				batchResults.push_back({ addr });
+				if (batchResults.size() >= 4096) {
+					outCache->push_back_batch(batchResults);
+					batchResults.clear();
+				}
+			}
+		}
+		else {
+			// ===== 标量回退（IncreasedBy / DecreasedBy + 浮点 NotEqual 近似）=====
+			// 虽然有虚拟调用开销，但 prevBuf 整块预读已消除逐地址调用
+			T placeholderPrev;
+			for (size_t off = 0; off + scalarSize <= toRead; off += step) {
+				if (m_cancel.load()) break;
+				uint64_t addr = chunkBase + off;
+				T curVal;
+				std::memcpy(&curVal, memBuf.data() + off, sizeof(T));
+
+				bool match = false;
+				switch (request.nextType) {
+				case NextScanType::Equal:
+					if constexpr (std::is_floating_point_v<T>) {
+						match = (curVal >= v1 && curVal <= v2);
+					} else {
+						match = (curVal == v1);
+					}
+					break;
+				case NextScanType::NotEqual:
+					if constexpr (std::is_floating_point_v<T>) {
+						match = (curVal < v1 || curVal > v2);
+					} else {
+						match = (curVal != v1);
+					}
+					break;
+				case NextScanType::IncreasedBy:
+					std::memcpy(&placeholderPrev, prevBuf.data() + off, sizeof(T));
+					match = (curVal > placeholderPrev + v1);
+					break;
+				case NextScanType::DecreasedBy:
+					std::memcpy(&placeholderPrev, prevBuf.data() + off, sizeof(T));
+					match = (curVal < placeholderPrev - v1);
+					break;
+				default:
+					// 安全回退
+					match = false;
+					break;
+				}
+
+				if (match) {
+					batchResults.push_back({ addr });
+					if (batchResults.size() >= 4096) {
+						outCache->push_back_batch(batchResults);
+						batchResults.clear();
+					}
+				}
+			}
+		}
+	}
+
+	if (!batchResults.empty()) outCache->push_back_batch(batchResults);
+	m_progress.fetch_add(1);
+}
+
 void ScanEngine::performAobSearch(const std::vector<uint8_t>& buf, uint64_t base, const AobParams& p, std::vector<uint64_t>& matched) {
+
 	if (p.pattern.empty() || buf.size() < p.pattern.size()) return;
 
     const size_t patLen = p.pattern.size();

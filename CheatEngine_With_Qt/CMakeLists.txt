@@ -16,6 +16,14 @@ set(CMAKE_AUTOUIC_SEARCH_PATHS ${CMAKE_CURRENT_SOURCE_DIR}/ui)
 
 find_package(Qt6 REQUIRED COMPONENTS Widgets)
 
+# ── 查找 Qt 翻译工具 ──
+find_program(QT_LUPDATE_EXECUTABLE
+    NAMES lupdate lupdate6
+    HINTS "${Qt6Widgets_DIR}/../../../bin"
+          "${Qt6_DIR}/../../../bin"
+          "${CMAKE_PREFIX_PATH}/bin"
+)
+
 file(GLOB_RECURSE SOURCES
     *.cpp
 )
@@ -78,6 +86,23 @@ add_custom_command(TARGET CheatEngineQt POST_BUILD
         --no-opengl-sw
     COMMENT "正在部署 Qt 依赖的 DLL ..."
 )
+
+# ── 生成后事件：自动更新 .ts 翻译文件（仅在 lupdate 可用时执行） ──
+if(QT_LUPDATE_EXECUTABLE)
+    set(TRANSLATION_OUTPUT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/language_translations")
+    set(TS_FILE "${TRANSLATION_OUTPUT_DIR}/Translation_en.ts")
+
+    # 每次构建时自动运行 lupdate，扫描整个源码目录提取 tr() 字符串，更新 .ts 文件
+    add_custom_command(TARGET CheatEngineQt POST_BUILD
+        COMMAND "${QT_LUPDATE_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}"
+            -ts "${TS_FILE}"
+            -noobsolete
+            -locations relative
+        COMMENT "正在更新翻译文件 Translation_en.ts ..."
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    )
+endif()
 
 # 拷贝 MSVC 运行时库 (如果需要独立运行)
 if (MSVC)
