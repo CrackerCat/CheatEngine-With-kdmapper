@@ -1,13 +1,14 @@
-#include "ViewModel\address_list_model.h"
-#include "process\process_manager.h"
-#include "interface\imemory_accessor.h"
+#include "ViewModel/address_list_model.h"
+#include "process/process_manager.h"
+#include "interface/imemory_accessor.h"
 
 #include <QBrush>
 #include <QColor>
 #include <algorithm>
 #include <cstring>
 
-// 快捷整行刷新：发射整行的 dataChanged，包含所有角色
+// ==================== 静态辅助 ====================
+
 static void emitRowChanged(QAbstractItemModel* model, int row)
 {
     QModelIndex topLeft = model->index(row, 0);
@@ -15,54 +16,14 @@ static void emitRowChanged(QAbstractItemModel* model, int row)
     emit model->dataChanged(topLeft, bottomRight);
 }
 
-// 从内存重读某一行的值（根据当前 type/stringLength）
-static void refreshItemValue(AddressItem& item, std::shared_ptr<IMemoryAccessor> mem)
-{
-    if (!mem) return;
-    if (isStringValueType(item.type) || isByteArrayValueType(item.type)) {
-        int readLen = (item.stringLength > 0) ? item.stringLength :
-                      static_cast<int>(valueTypeSize(item.type));
-        item.buffer.resize(readLen);
-        mem->read(item.address, item.buffer.data(), readLen);
-    } else {
-        size_t size = valueTypeSize(item.type);
-        // 先清零 rawValue，确保读取少于8字节时高位不会残留旧数据
-        item.rawValue = 0;
-        mem->read(item.address, &item.rawValue, size);
-    }
-    item.changed = false;
-}
-
-// 读取字符串后，在空字节/空字处截断，更新 buffer 和 stringLength
-static void truncateStringBuffer(AddressItem& item, int readLen)
-{
-    if (item.type != ValueType::String) return;
-
-    int realLen = 0;
-    if (item.encoding == StringEncoding::UTF16) {
-        // UTF-16LE: 查找双字节空字
-        const char16_t* u16 = reinterpret_cast<const char16_t*>(item.buffer.data());
-        int u16len = readLen / 2;
-        while (realLen < u16len && u16[realLen] != 0)
-            ++realLen;
-        realLen *= 2; // 转为字节数
-    } else {
-        // ASCII / UTF-8: 查找单字节空
-        const char* data = reinterpret_cast<const char*>(item.buffer.data());
-        while (realLen < readLen && data[realLen] != '\0')
-            ++realLen;
-    }
-
-    if (realLen < static_cast<int>(item.buffer.size())) {
-        item.buffer.resize(realLen);
-        item.stringLength = realLen;
-    }
-}
+// ==================== 构造 ====================
 
 AddressListModel::AddressListModel(QObject* parent)
     : QAbstractTableModel(parent)
 {
 }
+
+// ==================== QAbstractTableModel 接口 ====================
 
 int AddressListModel::rowCount(const QModelIndex&) const
 {
@@ -87,17 +48,21 @@ QVariant AddressListModel::data(const QModelIndex& index, int role) const
         case ColFrozen:
             return {};
         case ColDescription:
-            return item.description;
+            return item.description();
         case ColAddress: {
+            if (item.isPointer()) {
+                return item.formattedAddress();
+            }
             std::string display;
             bool isBase = false;
-            ProcessManager::instance().resolveAddress(item.address, display, isBase);
+            ProcessManager::instance().resolveAddress(item.address(), display, isBase);
             return QString::fromStdString(display);
         }
+
         case ColValue:
             return item.formattedValue();
         case ColType: {
-            switch (item.type) {
+            switch (item.type()) {
             case ValueType::Int8:      return "Byte";
             case ValueType::Int16:     return "2 Bytes";
             case ValueType::Int32:     return "4 Bytes";
@@ -110,38 +75,35 @@ QVariant AddressListModel::data(const QModelIndex& index, int role) const
             }
         }
         case ColDisplayMode: {
-            // 数据呈现方式列：显示当前显示模式状态
-            if (isNumericType(item.type)) {
-                return item.hexDisplay ? QString("Hex") : QString("Dec");
+            if (isNumericType(item.type())) {
+                return item.hexDisplay() ? QString("Hex") : QString("Dec");
             }
-            if (isStringValueType(item.type)) {
-                switch (item.encoding) {
+            if (isStringValueType(item.type())) {
+                switch (item.encoding()) {
                 case StringEncoding::ASCII: return "ASCII";
                 case StringEncoding::UTF8:  return "UTF-8";
                 case StringEncoding::UTF16: return "UTF-16";
                 }
             }
-            if (isByteArrayValueType(item.type)) {
-                return item.hexDisplay ? QString("Hex") : QString("Dec");
+            if (isByteArrayValueType(item.type())) {
+                return item.hexDisplay() ? QString("Hex") : QString("Dec");
             }
             return {};
         }
         case ColSigned: {
-            // Signed 列：仅整数类型显示 Signed/Unsigned
-            if (isIntegerType(item.type)) {
-                return item.signedDisplay ? QString("Signed") : QString("Unsigned");
+            if (isIntegerType(item.type())) {
+                return item.signedDisplay() ? QString("Signed") : QString("Unsigned");
             }
-            // 非整数类型显示 "-"
             return QString("-");
         }
         case ColLength: {
-            if (isNumericType(item.type)) {
-                return QString::number(valueTypeSize(item.type)) + " bytes";
+            if (isNumericType(item.type())) {
+                return QString::number(valueTypeSize(item.type())) + " bytes";
             }
-            if (isStringValueType(item.type) || isByteArrayValueType(item.type)) {
-                if (item.stringLength > 0)
-                    return QString::number(item.stringLength) + " bytes";
-                return QString::number(item.buffer.size()) + " bytes";
+            if (isStringValueType(item.type()) || isByteArrayValueType(item.type())) {
+                if (item.stringLength() > 0)
+                    return QString::number(item.stringLength()) + " bytes";
+                return QString::number(static_cast<int>(item.buffer().size())) + " bytes";
             }
             return {};
         }
@@ -152,12 +114,12 @@ QVariant AddressListModel::data(const QModelIndex& index, int role) const
     if (role == Qt::EditRole) {
         switch (index.column()) {
         case ColDescription:
-            return item.description;
+            return item.description();
         case ColValue:
             return item.formattedValue();
         case ColLength:
-            if (isStringValueType(item.type) || isByteArrayValueType(item.type))
-                return QString::number(item.stringLength > 0 ? item.stringLength : static_cast<int>(item.buffer.size()));
+            if (isStringValueType(item.type()) || isByteArrayValueType(item.type()))
+                return QString::number(item.stringLength() > 0 ? item.stringLength() : static_cast<int>(item.buffer().size()));
             return {};
         default:
             return {};
@@ -167,32 +129,43 @@ QVariant AddressListModel::data(const QModelIndex& index, int role) const
     // ---- 工具提示 ----
     if (role == Qt::ToolTipRole) {
         if (index.column() == ColAddress) {
-            return QString("0x%1").arg(item.address, 16, 16, QChar('0'));
-        }
-        if (index.column() == ColDisplayMode) {
-            if (isNumericType(item.type)) {
-                return item.hexDisplay ? tr("单击切换为十进制显示") : tr("单击切换为16进制显示");
+            if (item.isPointer()) {
+                QString tip;
+                tip += QStringLiteral("指针链: ") + item.pointerChain().baseAddressText;
+                for (const auto& pl : item.pointerChain().levels) {
+                    tip += QString(" +0x%1").arg(static_cast<long long>(pl.offset), 0, 16);
+                }
+                tip += QStringLiteral("\n原始基址: 0x%1").arg(item.pointerChain().baseAddress, 16, 16, QChar('0'));
+                tip += QStringLiteral("\n最终地址: 0x%1").arg(item.address(), 16, 16, QChar('0'));
+                return tip;
             }
-            if (isStringValueType(item.type)) {
+            return QString("0x%1").arg(item.address(), 16, 16, QChar('0'));
+        }
+
+        if (index.column() == ColDisplayMode) {
+            if (isNumericType(item.type())) {
+                return item.hexDisplay() ? tr("单击切换为十进制显示") : tr("单击切换为16进制显示");
+            }
+            if (isStringValueType(item.type())) {
                 return tr("单击切换字符串编码");
             }
-            if (isByteArrayValueType(item.type)) {
-                return item.hexDisplay ? tr("单击切换为十进制显示") : tr("单击切换为16进制显示");
+            if (isByteArrayValueType(item.type())) {
+                return item.hexDisplay() ? tr("单击切换为十进制显示") : tr("单击切换为16进制显示");
             }
         }
         if (index.column() == ColSigned) {
-            if (isIntegerType(item.type)) {
-                return item.signedDisplay ? tr("单击切换为无符号显示") : tr("单击切换为有符号显示");
+            if (isIntegerType(item.type())) {
+                return item.signedDisplay() ? tr("单击切换为无符号显示") : tr("单击切换为有符号显示");
             }
             return tr("仅整数类型支持有符号/无符号切换");
         }
         if (index.column() == ColLength) {
-            if (isNumericType(item.type)) {
-                return tr("数据类型大小: %1 字节").arg(valueTypeSize(item.type));
+            if (isNumericType(item.type())) {
+                return tr("数据类型大小: %1 字节").arg(valueTypeSize(item.type()));
             }
-            if (isStringValueType(item.type) || isByteArrayValueType(item.type)) {
+            if (isStringValueType(item.type()) || isByteArrayValueType(item.type())) {
                 return tr("数据长度: %1 字节（可编辑）").arg(
-                    item.stringLength > 0 ? item.stringLength : static_cast<int>(item.buffer.size()));
+                    item.stringLength() > 0 ? item.stringLength() : static_cast<int>(item.buffer().size()));
             }
         }
     }
@@ -212,36 +185,31 @@ QVariant AddressListModel::data(const QModelIndex& index, int role) const
 
     // ---- 前景色 ----
     if (role == Qt::ForegroundRole) {
-        // 基址地址用绿色
         if (index.column() == ColAddress) {
             std::string display;
             bool isBase = false;
-            ProcessManager::instance().resolveAddress(item.address, display, isBase);
+            ProcessManager::instance().resolveAddress(item.address(), display, isBase);
             if (isBase)
                 return QBrush(QColor(0, 128, 0));
         }
-        // 变化的值标红
-        if (index.column() == ColValue && item.changed)
+        if (index.column() == ColValue && item.isChanged())
             return QBrush(Qt::red);
     }
 
     // ---- 复选框状态 ----
     if (role == Qt::CheckStateRole) {
         if (index.column() == ColFrozen)
-            return item.frozen ? Qt::Checked : Qt::Unchecked;
+            return item.isFrozen() ? Qt::Checked : Qt::Unchecked;
 
-        // DisplayMode 列：数值类型和字节数组类型显示 CheckBox
         if (index.column() == ColDisplayMode) {
-            if (isNumericType(item.type) || isByteArrayValueType(item.type))
-                return item.hexDisplay ? Qt::Checked : Qt::Unchecked;
-            // 字符串类型不显示 CheckBox，用 DisplayRole 显示编码名
+            if (isNumericType(item.type()) || isByteArrayValueType(item.type()))
+                return item.hexDisplay() ? Qt::Checked : Qt::Unchecked;
             return {};
         }
 
-        // Signed 列：仅整数类型显示 CheckBox
         if (index.column() == ColSigned) {
-            if (isIntegerType(item.type))
-                return item.signedDisplay ? Qt::Checked : Qt::Unchecked;
+            if (isIntegerType(item.type()))
+                return item.signedDisplay() ? Qt::Checked : Qt::Unchecked;
             return {};
         }
     }
@@ -279,17 +247,16 @@ bool AddressListModel::setData(const QModelIndex& index, const QVariant& value, 
         bool checked = (value.toInt() == Qt::Checked);
 
         if (index.column() == ColFrozen) {
-            item.frozen = checked;
+            item.m_frozen = checked;
             emitRowChanged(this, row);
             return true;
         }
 
         if (index.column() == ColDisplayMode) {
-            if (isNumericType(item.type) || isByteArrayValueType(item.type)) {
-                item.hexDisplay = checked;
-                // 切换 Hex/Dec 后立即重读内存刷新 Value
+            if (isNumericType(item.m_type) || isByteArrayValueType(item.m_type)) {
+                item.m_hexDisplay = checked;
                 auto mem = ProcessManager::instance().memory();
-                if (mem) refreshItemValue(item, mem);
+                if (mem) item.refreshValue(mem);
                 emitRowChanged(this, row);
                 return true;
             }
@@ -297,10 +264,10 @@ bool AddressListModel::setData(const QModelIndex& index, const QVariant& value, 
         }
 
         if (index.column() == ColSigned) {
-            if (isIntegerType(item.type)) {
-                item.signedDisplay = checked;
+            if (isIntegerType(item.m_type)) {
+                item.m_signedDisplay = checked;
                 auto mem = ProcessManager::instance().memory();
-                if (mem) refreshItemValue(item, mem);
+                if (mem) item.refreshValue(mem);
                 emitRowChanged(this, row);
                 return true;
             }
@@ -314,33 +281,25 @@ bool AddressListModel::setData(const QModelIndex& index, const QVariant& value, 
     if (role == Qt::EditRole) {
         if (index.column() == ColDescription) {
             QString newDesc = value.toString().trimmed();
-            // 如果没有输入新内容，保持原有描述不变
             if (!newDesc.isEmpty())
-                item.description = newDesc;
-            // 即使没有变化也要 emitRowChanged 以关闭编辑器
+                item.m_description = newDesc;
             emitRowChanged(this, row);
             return true;
         }
 
         if (index.column() == ColType) {
             ValueType newType = static_cast<ValueType>(value.toInt());
-            if (newType != item.type) {
-                item.type = newType;
-
-                // 类型变化后立即从内存重读，不清除已有值
-                // （若内存不可用则保留旧值，避免数值突然变 0）
+            if (newType != item.m_type) {
+                item.m_type = newType;
                 auto mem = ProcessManager::instance().memory();
                 if (mem) {
-                    refreshItemValue(item, mem);
+                    item.refreshValue(mem);
                 } else {
-                    // 内存不可用时，清空字符串/字节数组缓冲区
-                    if (isStringValueType(item.type) || isByteArrayValueType(item.type)) {
-                        item.buffer.clear();
-                        item.stringLength = 0;
+                    if (isStringValueType(item.m_type) || isByteArrayValueType(item.m_type)) {
+                        item.m_buffer.clear();
+                        item.m_stringLength = 0;
                     }
                 }
-
-                // 延迟刷新：确保编辑器完全关闭后再通知视图更新
                 QMetaObject::invokeMethod(this, [this, row]() {
                     emitRowChanged(this, row);
                 }, Qt::QueuedConnection);
@@ -355,9 +314,11 @@ bool AddressListModel::setData(const QModelIndex& index, const QVariant& value, 
             auto mem = ProcessManager::instance().memory();
             if (!mem) return false;
 
-            if (isStringValueType(item.type)) {
+            uint64_t writeAddr = item.getEffectiveAddress(mem);
+
+            if (isStringValueType(item.m_type)) {
                 QByteArray encoded;
-                switch (item.encoding) {
+                switch (item.m_encoding) {
                 case StringEncoding::UTF16:
                     encoded = QByteArray(reinterpret_cast<const char*>(text.utf16()), text.size() * 2);
                     break;
@@ -370,30 +331,30 @@ bool AddressListModel::setData(const QModelIndex& index, const QVariant& value, 
                     break;
                 }
                 if (!encoded.isEmpty()) {
-                    mem->write(item.address, encoded.constData(), encoded.size());
-                    item.buffer.resize(encoded.size());
-                    mem->read(item.address, item.buffer.data(), encoded.size());
+                    mem->write(writeAddr, encoded.constData(), encoded.size());
+                    item.m_buffer.resize(encoded.size());
+                    mem->read(writeAddr, item.m_buffer.data(), encoded.size());
                 }
-                item.changed = false;
+                item.m_changed = false;
                 emitRowChanged(this, row);
                 return true;
             }
 
-            if (isByteArrayValueType(item.type)) {
+            if (isByteArrayValueType(item.m_type)) {
                 QStringList byteTokens = text.split(' ', Qt::SkipEmptyParts);
                 std::vector<uint8_t> newBuffer;
                 newBuffer.reserve(byteTokens.size());
                 bool ok = true;
                 for (const QString& byteStr : byteTokens) {
-                    uint val = byteStr.toUInt(&ok, item.hexDisplay ? 16 : 10);
+                    uint val = byteStr.toUInt(&ok, item.m_hexDisplay ? 16 : 10);
                     if (!ok || val > 0xFF) { ok = false; break; }
                     newBuffer.push_back(static_cast<uint8_t>(val));
                 }
                 if (!ok || newBuffer.empty()) return false;
-                mem->write(item.address, newBuffer.data(), newBuffer.size());
-                item.buffer.resize(newBuffer.size());
-                mem->read(item.address, item.buffer.data(), newBuffer.size());
-                item.changed = false;
+                mem->write(writeAddr, newBuffer.data(), newBuffer.size());
+                item.m_buffer.resize(newBuffer.size());
+                mem->read(writeAddr, item.m_buffer.data(), newBuffer.size());
+                item.m_changed = false;
                 emitRowChanged(this, row);
                 return true;
             }
@@ -401,79 +362,76 @@ bool AddressListModel::setData(const QModelIndex& index, const QVariant& value, 
             // 数值类型编辑
             bool ok = false;
             uint64_t newRaw = 0;
-            int base = item.hexDisplay ? 16 : 0;
+            int base = item.m_hexDisplay ? 16 : 0;
 
-            switch (item.type) {
+            switch (item.m_type) {
             case ValueType::Int8: {
                 int v = text.toInt(&ok, base);
-                if (ok) { newRaw = static_cast<uint8_t>(static_cast<int8_t>(v)); mem->write(item.address, &newRaw, 1); }
+                if (ok) { newRaw = static_cast<uint8_t>(static_cast<int8_t>(v)); mem->write(writeAddr, &newRaw, 1); }
                 break;
             }
             case ValueType::Int16: {
                 int v = text.toInt(&ok, base);
-                if (ok) { newRaw = static_cast<uint16_t>(static_cast<int16_t>(v)); mem->write(item.address, &newRaw, 2); }
+                if (ok) { newRaw = static_cast<uint16_t>(static_cast<int16_t>(v)); mem->write(writeAddr, &newRaw, 2); }
                 break;
             }
             case ValueType::Int32: {
                 if (base == 16) {
                     uint v = text.toUInt(&ok, 16);
-                    if (ok) { newRaw = v; mem->write(item.address, &newRaw, 4); }
+                    if (ok) { newRaw = v; mem->write(writeAddr, &newRaw, 4); }
                 } else {
                     int v = text.toInt(&ok, 10);
-                    if (ok) { std::memcpy(&newRaw, &v, sizeof(v)); mem->write(item.address, &newRaw, 4); }
+                    if (ok) { std::memcpy(&newRaw, &v, sizeof(v)); mem->write(writeAddr, &newRaw, 4); }
                 }
                 break;
             }
             case ValueType::Int64: {
                 if (base == 16) {
                     uint64_t v = text.toULongLong(&ok, 16);
-                    if (ok) { newRaw = v; mem->write(item.address, &newRaw, 8); }
+                    if (ok) { newRaw = v; mem->write(writeAddr, &newRaw, 8); }
                 } else {
                     int64_t v = text.toLongLong(&ok, 10);
-                    if (ok) { std::memcpy(&newRaw, &v, sizeof(v)); mem->write(item.address, &newRaw, 8); }
+                    if (ok) { std::memcpy(&newRaw, &v, sizeof(v)); mem->write(writeAddr, &newRaw, 8); }
                 }
                 break;
             }
             case ValueType::Float: {
                 float f = text.toFloat(&ok);
-                if (ok) { std::memcpy(&newRaw, &f, sizeof(f)); mem->write(item.address, &newRaw, 4); }
+                if (ok) { std::memcpy(&newRaw, &f, sizeof(f)); mem->write(writeAddr, &newRaw, 4); }
                 break;
             }
             case ValueType::Double: {
                 double d = text.toDouble(&ok);
-                if (ok) { std::memcpy(&newRaw, &d, sizeof(d)); mem->write(item.address, &newRaw, 8); }
+                if (ok) { std::memcpy(&newRaw, &d, sizeof(d)); mem->write(writeAddr, &newRaw, 8); }
                 break;
             }
             default: {
                 uint v = text.toUInt(&ok, base);
-                if (ok) { newRaw = v; mem->write(item.address, &newRaw, 4); }
+                if (ok) { newRaw = v; mem->write(writeAddr, &newRaw, 4); }
                 break;
             }
             }
             if (!ok) return false;
 
-            size_t size = valueTypeSize(item.type);
-            mem->read(item.address, &item.rawValue, size);
-            item.changed = false;
+            size_t size = valueTypeSize(item.m_type);
+            mem->read(writeAddr, &item.m_rawValue, size);
+            item.m_changed = false;
             emitRowChanged(this, row);
             return true;
         }
 
         if (index.column() == ColDisplayMode) {
-            // 字符串类型：解析 ComboBox 传来的编码数据
-            if (isStringValueType(item.type)) {
+            if (isStringValueType(item.m_type)) {
                 QString data = value.toString();
                 QStringList parts = data.split(',');
                 for (const QString& part : parts) {
                     QStringList kv = part.split(':');
                     if (kv.size() == 2 && kv[0] == "encoding") {
-                        item.encoding = static_cast<StringEncoding>(kv[1].toInt());
+                        item.m_encoding = static_cast<StringEncoding>(kv[1].toInt());
                     }
                 }
-                // 编码变化后从真实内存重读字符串数据，确保显示最新
                 auto mem = ProcessManager::instance().memory();
-                if (mem) refreshItemValue(item, mem);
-                // 延迟刷新：确保编辑器完全关闭后再通知视图更新
+                if (mem) item.refreshValue(mem);
                 QMetaObject::invokeMethod(this, [this, row]() {
                     emitRowChanged(this, row);
                 }, Qt::QueuedConnection);
@@ -483,17 +441,18 @@ bool AddressListModel::setData(const QModelIndex& index, const QVariant& value, 
         }
 
         if (index.column() == ColLength) {
-            if (!isStringValueType(item.type) && !isByteArrayValueType(item.type))
+            if (!isStringValueType(item.m_type) && !isByteArrayValueType(item.m_type))
                 return false;
             bool ok = false;
             int newLen = value.toInt(&ok);
             if (!ok || newLen <= 0 || newLen > 4096) return false;
-            item.stringLength = newLen;
+            item.m_stringLength = newLen;
 
             auto mem = ProcessManager::instance().memory();
             if (mem) {
-                item.buffer.resize(newLen);
-                mem->read(item.address, item.buffer.data(), newLen);
+                item.m_buffer.resize(newLen);
+                uint64_t readAddr = item.getEffectiveAddress(mem);
+                mem->read(readAddr, item.m_buffer.data(), newLen);
             }
             emitRowChanged(this, row);
             return true;
@@ -521,28 +480,25 @@ Qt::ItemFlags AddressListModel::flags(const QModelIndex& index) const
         flags |= Qt::ItemIsEditable;
         break;
     case ColDisplayMode:
-        // 数值类型和字节数组类型：CheckBox 形式
         if (index.row() < m_items.size()) {
             const auto& item = m_items[index.row()];
-            if (isNumericType(item.type) || isByteArrayValueType(item.type))
+            if (isNumericType(item.type()) || isByteArrayValueType(item.type()))
                 flags |= Qt::ItemIsUserCheckable;
-            else if (isStringValueType(item.type))
-                flags |= Qt::ItemIsEditable; // 字符串编码用单击编辑循环切换
+            else if (isStringValueType(item.type()))
+                flags |= Qt::ItemIsEditable;
         }
         break;
     case ColSigned:
-        // Signed 列仅对整数类型显示 CheckBox
         if (index.row() < m_items.size()) {
             const auto& item = m_items[index.row()];
-            if (isIntegerType(item.type))
+            if (isIntegerType(item.type()))
                 flags |= Qt::ItemIsUserCheckable;
         }
         break;
     case ColLength:
-        // Length 列仅对字符串/字节数组可编辑
         if (index.row() < m_items.size()) {
             const auto& item = m_items[index.row()];
-            if (isStringValueType(item.type) || isByteArrayValueType(item.type))
+            if (isStringValueType(item.type()) || isByteArrayValueType(item.type()))
                 flags |= Qt::ItemIsEditable;
         }
         break;
@@ -551,25 +507,66 @@ Qt::ItemFlags AddressListModel::flags(const QModelIndex& index) const
     return flags;
 }
 
+// ==================== 辅助 ====================
+
+QString AddressListModel::pointerChainKey(const PointerChain& chain)
+{
+    // 基址 + 各级偏移量组成唯一 key
+    QString key = QString("0x%1").arg(chain.baseAddress, 16, 16, QChar('0'));
+    for (const auto& lv : chain.levels)
+        key += QString("+0x%1").arg(static_cast<long long>(lv.offset), 0, 16);
+    return key;
+}
+
 // ==================== 地址操作 ====================
 
-void AddressListModel::addItem(uint64_t address, const QString& description,
-                               uint64_t rawValue, ValueType type)
+int AddressListModel::addItem(uint64_t address, const QString& description,
+                              uint64_t rawValue, ValueType type,
+                              const PointerChain& pointerChain)
 {
-    beginInsertRows(QModelIndex(), m_items.size(), m_items.size());
-    AddressItem item;
-    item.description = description;
-    item.address = address;
-    item.rawValue = rawValue;
-    item.type = type;
-    m_items.push_back(item);
+    // O(1) 去重检查
+    if (pointerChain.isValid()) {
+        QString key = pointerChainKey(pointerChain);
+        if (m_pointerChainKeySet.find(key) != m_pointerChainKeySet.end())
+            return -1;
+    } else {
+        if (m_normalAddressSet.find(address) != m_normalAddressSet.end())
+            return -1;
+    }
+
+    int row = static_cast<int>(m_items.size());
+    beginInsertRows(QModelIndex(), row, row);
+
+    AddressItem::Config cfg;
+    cfg.description   = description;
+    cfg.address       = address;
+    cfg.rawValue      = rawValue;
+    cfg.type          = type;
+    cfg.pointerChain  = pointerChain;
+
+    // 先记录 set，再创建 item
+    if (pointerChain.isValid())
+        m_pointerChainKeySet.insert(pointerChainKey(pointerChain));
+    else
+        m_normalAddressSet.insert(address);
+
+    m_items.push_back(AddressItem::create(cfg));
+
     endInsertRows();
+    return row;
 }
 
 void AddressListModel::addItems(const std::vector<AddressItem>& newItems)
 {
     if (newItems.empty()) return;
     beginInsertRows(QModelIndex(), m_items.size(), m_items.size() + newItems.size() - 1);
+    for (const auto& item : newItems) {
+        // 同步更新 set
+        if (item.isPointer())
+            m_pointerChainKeySet.insert(pointerChainKey(item.pointerChain()));
+        else
+            m_normalAddressSet.insert(item.address());
+    }
     m_items.insert(m_items.end(), newItems.begin(), newItems.end());
     endInsertRows();
 }
@@ -584,81 +581,142 @@ void AddressListModel::addItemsFromScanResults(
     std::vector<AddressItem> newItems;
     newItems.reserve(addresses.size());
 
+    // 批量内 O(1) 去重辅助（防止同一批内重复）
+    std::unordered_set<uint64_t> batchNormalSet;
+    std::unordered_set<QString> batchPointerSet;
+
     auto mem = ProcessManager::instance().memory();
     ValueType vt = scanDataTypeToValueType(scanDataType);
     size_t readSize = valueTypeSize(vt);
 
     for (int i = 0; i < addresses.size(); ++i) {
         uint64_t addr = addresses[i];
-        AddressItem item;
-        item.address = addr;
-        item.type = vt;
+        AddressItem::Config cfg;
+        cfg.address = addr;
+        cfg.type = vt;
 
-            if (isStringValueType(vt) || isByteArrayValueType(vt)) {
-                // 根据扫描时的编码类型设置正确编码
-                if (isStringValueType(vt)) {
-                    switch (scanDataType) {
-                    case ScanDataType::Utf16String:
-                        item.encoding = StringEncoding::UTF16;
-                        break;
-                    case ScanDataType::Utf8String:
-                        item.encoding = StringEncoding::UTF8;
-                        break;
-                    default:
-                        item.encoding = StringEncoding::ASCII;
-                        break;
-                    }
+        if (isStringValueType(vt) || isByteArrayValueType(vt)) {
+            if (isStringValueType(vt)) {
+                switch (scanDataType) {
+                case ScanDataType::Utf16String:
+                    cfg.encoding = StringEncoding::UTF16;
+                    break;
+                case ScanDataType::Utf8String:
+                    cfg.encoding = StringEncoding::UTF8;
+                    break;
+                default:
+                    cfg.encoding = StringEncoding::ASCII;
+                    break;
                 }
+            }
 
-                // 对字符串类型：先读取256字节以确定真实长度，最多截断到32字节
-                int probeLen = isStringValueType(vt) ? 256 : static_cast<int>(readSize);
-                item.buffer.resize(probeLen);
-                if (mem) {
-                    mem->read(addr, item.buffer.data(), probeLen);
+            int probeLen = isStringValueType(vt) ? 256 : static_cast<int>(readSize);
+            cfg.buffer.resize(probeLen);
+            if (mem) {
+                mem->read(addr, cfg.buffer.data(), probeLen);
+            }
+            if (isStringValueType(vt)) {
+                int realLen = 0;
+                if (cfg.encoding == StringEncoding::UTF16) {
+                    const char16_t* u16 = reinterpret_cast<const char16_t*>(cfg.buffer.data());
+                    int u16len = probeLen / 2;
+                    while (realLen < u16len && u16[realLen] != 0)
+                        ++realLen;
+                    realLen = std::min(realLen * 2, 32);
+                } else {
+                    const char* data = reinterpret_cast<const char*>(cfg.buffer.data());
+                    while (realLen < probeLen && data[realLen] != '\0')
+                        ++realLen;
+                    realLen = std::min(realLen, 32);
                 }
-                if (isStringValueType(vt)) {
-                    // 查找空终止符位置，确定真实字符串长度
-                    int realLen = 0;
-                    if (item.encoding == StringEncoding::UTF16) {
-                        const char16_t* u16 = reinterpret_cast<const char16_t*>(item.buffer.data());
-                        int u16len = probeLen / 2;
-                        while (realLen < u16len && u16[realLen] != 0)
-                            ++realLen;
-                        realLen = std::min(realLen * 2, 32); // 最大32字节
-                    } else {
-                        const char* data = reinterpret_cast<const char*>(item.buffer.data());
-                        while (realLen < probeLen && data[realLen] != '\0')
-                            ++realLen;
-                        realLen = std::min(realLen, 32); // 最大32字节
-                    }
-                    if (realLen <= 0) realLen = 1;
-                    item.buffer.resize(realLen);
-                    item.stringLength = realLen;
+                if (realLen <= 0) realLen = 1;
+                cfg.buffer.resize(realLen);
+                cfg.stringLength = realLen;
             } else {
-                // 字节数组：按默认读取大小，默认16进制显示
-                item.buffer.resize(readSize);
-                item.stringLength = static_cast<int>(readSize);
-                item.hexDisplay = true;
+                cfg.buffer.resize(readSize);
+                cfg.stringLength = static_cast<int>(readSize);
+                cfg.hexDisplay = true;
             }
         } else {
             if (mem)
-                mem->read(addr, &item.rawValue, readSize);
+                mem->read(addr, &cfg.rawValue, readSize);
         }
 
         if (i < static_cast<int>(addressTexts.size()) && !addressTexts[i].empty())
-            item.description = QString::fromStdString(addressTexts[i]);
+            cfg.description = QString::fromStdString(addressTexts[i]);
         else
-            item.description = QString("0x%1").arg(addr, 0, 16);
+            cfg.description = QString("0x%1").arg(addr, 0, 16);
 
-        newItems.push_back(item);
+        // O(1) 去重检查：全局 + 组内
+        if (cfg.pointerChain.isValid()) {
+            QString key = pointerChainKey(cfg.pointerChain);
+            if (m_pointerChainKeySet.find(key) != m_pointerChainKeySet.end())
+                continue;
+            if (batchPointerSet.find(key) != batchPointerSet.end())
+                continue;
+            batchPointerSet.insert(std::move(key));
+        } else {
+            if (m_normalAddressSet.find(cfg.address) != m_normalAddressSet.end())
+                continue;
+            if (batchNormalSet.find(cfg.address) != batchNormalSet.end())
+                continue;
+            batchNormalSet.insert(cfg.address);
+        }
+
+        newItems.push_back(AddressItem::create(cfg));
     }
 
     addItems(newItems);
 }
 
+void AddressListModel::updateItem(int row, const ItemUpdate& update)
+{
+    if (row < 0 || row >= static_cast<int>(m_items.size())) return;
+
+    auto& item = m_items[row];
+
+    // 如果地址或指针链发生变化，需要更新 set
+    bool needRehashNormal = !item.isPointer() && !update.pointerChain.isValid()
+                            && item.address() != update.address;
+    bool needRehashPointer = item.isPointer() && update.pointerChain.isValid()
+                             && !(item.pointerChain() == update.pointerChain);
+
+    // 清除旧的 key
+    if (needRehashNormal)
+        m_normalAddressSet.erase(item.address());
+    if (needRehashPointer)
+        m_pointerChainKeySet.erase(pointerChainKey(item.pointerChain()));
+
+    item.m_address      = update.address;
+    item.m_description  = update.description;
+    item.m_type         = update.type;
+    item.m_hexDisplay   = update.hexDisplay;
+    item.m_signedDisplay = update.signedDisplay;
+    item.m_encoding     = update.encoding;
+    item.m_stringLength = update.stringLength;
+    item.m_buffer       = update.buffer;
+    item.m_pointerChain = update.pointerChain;
+
+    // 插入新的 key
+    if (needRehashNormal)
+        m_normalAddressSet.insert(update.address);
+    if (needRehashPointer)
+        m_pointerChainKeySet.insert(pointerChainKey(update.pointerChain));
+
+    emitRowChanged(this, row);
+}
+
 void AddressListModel::removeItem(int row)
 {
     if (row < 0 || row >= m_items.size()) return;
+
+    // 清理 set
+    const auto& item = m_items[row];
+    if (item.isPointer())
+        m_pointerChainKeySet.erase(pointerChainKey(item.pointerChain()));
+    else
+        m_normalAddressSet.erase(item.address());
+
     beginRemoveRows(QModelIndex(), row, row);
     m_items.erase(m_items.begin() + row);
     endRemoveRows();
@@ -668,8 +726,12 @@ void AddressListModel::clear()
 {
     beginResetModel();
     m_items.clear();
+    m_normalAddressSet.clear();
+    m_pointerChainKeySet.clear();
     endResetModel();
 }
+
+// ==================== 批量操作 ====================
 
 void AddressListModel::refreshValues(std::shared_ptr<IMemoryAccessor> mem)
 {
@@ -680,40 +742,12 @@ void AddressListModel::refreshValues(std::shared_ptr<IMemoryAccessor> mem)
 
     for (int i = 0; i < m_items.size(); ++i) {
         auto& item = m_items[i];
+        bool oldChanged = item.m_changed;
+        item.refreshValue(mem);
 
-        if (isStringValueType(item.type) || isByteArrayValueType(item.type)) {
-            int readLen = (item.stringLength > 0) ? item.stringLength : 32;
-            std::vector<uint8_t> oldBuffer = item.buffer;
-            item.buffer.resize(readLen);
-            mem->read(item.address, item.buffer.data(), readLen);
-            // mem->read 返回 bool，用 readLen 作为实际读取大小
-
-            // 比较完整 buffer（formattedStringValue 显示时会自动在空字符处截断）
-            bool bufferChanged = (oldBuffer != item.buffer);
-            if (!item.frozen && bufferChanged) {
-                item.changed = true;
-                if (firstChanged == -1) firstChanged = i;
-                lastChanged = i;
-            } else if (item.changed && !bufferChanged) {
-                item.changed = false;
-                if (firstChanged == -1) firstChanged = i;
-                lastChanged = i;
-            }
-        } else {
-            uint64_t oldRaw = item.rawValue;
-            size_t size = valueTypeSize(item.type);
-            mem->read(item.address, &item.rawValue, size);
-
-            if (!item.frozen && oldRaw != item.rawValue) {
-                item.lastRawValue = item.changed ? item.lastRawValue : oldRaw;
-                item.changed = true;
-                if (firstChanged == -1) firstChanged = i;
-                lastChanged = i;
-            } else if (item.changed && oldRaw == item.rawValue) {
-                item.changed = false;
-                if (firstChanged == -1) firstChanged = i;
-                lastChanged = i;
-            }
+        if (item.m_changed != oldChanged) {
+            if (firstChanged == -1) firstChanged = i;
+            lastChanged = i;
         }
     }
 
@@ -722,4 +756,24 @@ void AddressListModel::refreshValues(std::shared_ptr<IMemoryAccessor> mem)
         QModelIndex bottom = index(lastChanged, ColValue);
         emit dataChanged(top, bottom, { Qt::DisplayRole, Qt::ForegroundRole });
     }
+}
+
+void AddressListModel::freezeAll(std::shared_ptr<IMemoryAccessor> mem)
+{
+    if (!mem) return;
+
+    for (auto& item : m_items) {
+        if (item.m_frozen) {
+            item.freezeWrite(mem);
+        }
+    }
+}
+
+int AddressListModel::findRow(const AddressItem* ptr) const
+{
+    if (!ptr) return -1;
+    auto it = std::find_if(m_items.begin(), m_items.end(),
+                           [ptr](const AddressItem& item) { return &item == ptr; });
+    if (it == m_items.end()) return -1;
+    return static_cast<int>(std::distance(m_items.begin(), it));
 }

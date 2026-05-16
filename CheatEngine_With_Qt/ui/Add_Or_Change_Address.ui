@@ -402,7 +402,7 @@
         <item>
          <widget class="QLabel" name="label_base_pointer_compute_value">
           <property name="text">
-           <string>-&gt;?????</string>
+           <string>=?????</string>
           </property>
          </widget>
         </item>

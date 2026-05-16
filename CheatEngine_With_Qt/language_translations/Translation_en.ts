@@ -4,7 +4,7 @@
 <context>
     <name>Add_Or_Change_Address_Dialog</name>
     <message>
-        <location filename="../ViewModel/Add_Or_Change_Address.cpp" line="+47"/>
+        <location filename="../ViewModel/Add_Or_Change_Address.cpp" line="+105"/>
         <source>修改地址</source>
         <translation>Edit_Address</translation>
     </message>
@@ -14,7 +14,7 @@
         <translation>Change_Address</translation>
     </message>
     <message>
-        <location line="+85"/>
+        <location line="+67"/>
         <source>1字节</source>
         <translation>1 Byte</translation>
     </message>
@@ -54,7 +54,7 @@
         <translation>Array of Byte</translation>
     </message>
     <message>
-        <location line="+386"/>
+        <location line="+285"/>
         <source>???+?=???</source>
         <translation></translation>
     </message>
@@ -64,55 +64,55 @@
         <translation>No Process</translation>
     </message>
     <message>
-        <location line="+15"/>
-        <location line="+34"/>
+        <location line="+12"/>
+        <location line="+24"/>
         <source>读取失败</source>
         <translation>Read Fail</translation>
     </message>
     <message>
-        <location line="+72"/>
+        <location line="+47"/>
         <source>=无进程</source>
         <translation>=No process</translation>
     </message>
     <message>
-        <location line="+17"/>
-        <location line="+43"/>
-        <location line="+17"/>
+        <location line="+14"/>
+        <location line="+29"/>
+        <location line="+12"/>
         <source>=读取失败</source>
         <translation></translation>
     </message>
     <message>
-        <location line="+96"/>
+        <location line="+69"/>
         <location line="+8"/>
         <location line="+8"/>
         <source>长度</source>
         <translation>Length</translation>
     </message>
     <message>
-        <location line="+11"/>
-        <location line="+12"/>
-        <location line="+9"/>
+        <location line="+10"/>
+        <location line="+10"/>
         <location line="+8"/>
+        <location line="+7"/>
         <source>错误</source>
         <translation>Error</translation>
     </message>
     <message>
-        <location line="-29"/>
+        <location line="-25"/>
         <source>请输入地址。</source>
         <translation>please input address</translation>
     </message>
     <message>
-        <location line="+12"/>
+        <location line="+10"/>
         <source>无效的地址格式。</source>
         <translation>invalid add</translation>
     </message>
     <message>
-        <location line="+9"/>
+        <location line="+8"/>
         <source>指针模式：基础指针地址不能为空。</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+8"/>
+        <location line="+7"/>
         <source>无效的基址格式。支持：0x地址、十进制数字、或&quot;模块名+0x偏移&quot;。</source>
         <translation type="unfinished"></translation>
     </message>
@@ -120,7 +120,7 @@
 <context>
     <name>AddressListModel</name>
     <message>
-        <location filename="../ViewModel/address_list_model.cpp" line="+174"/>
+        <location filename="../ViewModel/address_list_model.cpp" line="+147"/>
         <location line="+6"/>
         <source>单击切换为十进制显示</source>
         <translation type="unfinished"></translation>
@@ -518,7 +518,7 @@ Github项目地址</source>
     <name>Dialog_Add_Or_Change_Address</name>
     <message>
         <location filename="../ui/Add_Or_Change_Address.ui" line="+20"/>
-        <location filename="../build/CheatEngineQt_autogen/include_Debug/ui_Add_Or_Change_Address.h" line="+335"/>
+        <location filename="../build/CheatEngineQt_autogen/include_Debug/ui_Add_Or_Change_Address.h" line="+343"/>
         <location filename="../build/CheatEngineQt_autogen/include_Release/ui_Add_Or_Change_Address.h" line="+343"/>
         <source>Dialog</source>
         <translation type="unfinished">About</translation>
@@ -644,6 +644,7 @@ Github项目地址</source>
     </message>
     <message>
         <location line="+46"/>
+        <location filename="../build/CheatEngineQt_autogen/include_Debug/ui_Add_Or_Change_Address.h" line="+1"/>
         <location filename="../build/CheatEngineQt_autogen/include_Release/ui_Add_Or_Change_Address.h" line="+1"/>
         <source> 1 级指针</source>
         <translation>1 level pointer</translation>
@@ -680,7 +681,7 @@ Github项目地址</source>
         <location line="+35"/>
         <location filename="../build/CheatEngineQt_autogen/include_Debug/ui_Add_Or_Change_Address.h" line="+1"/>
         <location filename="../build/CheatEngineQt_autogen/include_Release/ui_Add_Or_Change_Address.h" line="+1"/>
-        <source>-&gt;?????</source>
+        <source>=?????</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -701,7 +702,7 @@ Github项目地址</source>
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../ViewModel/MainWindow.cpp" line="+72"/>
+        <location filename="../ViewModel/MainWindow.cpp" line="+73"/>
         <source>English</source>
         <translation type="unfinished"></translation>
     </message>
@@ -718,24 +719,24 @@ Github项目地址</source>
         <translation>find address  %1  list_address&#x3000;&#x3000;%2</translation>
     </message>
     <message>
-        <location line="+418"/>
-        <location line="+932"/>
+        <location line="+430"/>
+        <location line="+901"/>
         <source>首次扫描</source>
         <translation>FirstScan</translation>
     </message>
     <message>
-        <location line="-1329"/>
-        <location line="+402"/>
+        <location line="-1310"/>
+        <location line="+414"/>
         <location line="+5"/>
         <location line="+332"/>
         <location line="+190"/>
-        <location line="+178"/>
+        <location line="+147"/>
         <location line="+5"/>
         <source>全部模块</source>
         <translation>All modules</translation>
     </message>
     <message>
-        <location line="-1189"/>
+        <location line="-1170"/>
         <source>语言</source>
         <translation>language</translation>
     </message>
@@ -751,12 +752,12 @@ Github项目地址</source>
     </message>
     <message>
         <location line="+3"/>
-        <location line="+1675"/>
+        <location line="+1656"/>
         <source>软件捐赠 / 关于</source>
         <translation>Software Donate/About</translation>
     </message>
     <message>
-        <location line="-1666"/>
+        <location line="-1647"/>
         <source>选中时，浮点数搜索包含近似值（如搜 521 可匹配 520.xxx ~ 521.xxx 范围内的值）；
 不选中时，取浮点数的精确位级匹配</source>
         <translation type="unfinished"></translation>
@@ -772,7 +773,12 @@ Github项目地址</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+449"/>
+        <location line="+239"/>
+        <source>删除选中地址</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+222"/>
         <location line="+240"/>
         <location line="+16"/>
         <location line="+6"/>
@@ -780,7 +786,7 @@ Github项目地址</source>
         <location line="+88"/>
         <location line="+5"/>
         <location line="+38"/>
-        <location line="+647"/>
+        <location line="+616"/>
         <location line="+9"/>
         <location line="+10"/>
         <location line="+17"/>
@@ -793,12 +799,12 @@ Github项目地址</source>
         <location line="+7"/>
         <location line="+16"/>
         <location line="+11"/>
-        <location line="+163"/>
+        <location line="+154"/>
         <source>错误</source>
         <translation>Error</translation>
     </message>
     <message>
-        <location line="-1346"/>
+        <location line="-1306"/>
         <source>附加进程失败.</source>
         <translation>Attach process_fail</translation>
     </message>
@@ -1006,12 +1012,12 @@ Github项目地址</source>
         <translation>Scaning %1% (Region %2 / %3)</translation>
     </message>
     <message>
-        <location line="+122"/>
+        <location line="+91"/>
         <source>请选择进程</source>
         <translation>please seletct a process</translation>
     </message>
     <message>
-        <location line="+667"/>
+        <location line="+658"/>
         <source>无法加载英文翻译文件！</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1026,7 +1032,7 @@ Github项目地址</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-676"/>
+        <location line="-667"/>
         <source>进程终止</source>
         <translation>process terminated</translation>
     </message>

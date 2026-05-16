@@ -169,4 +169,7 @@ private slots:
 
     /// 打开"手动添加地址"对话框
     void onAddAddressManually();
+
+    /// 删除地址列表中选中的条目（右键菜单/Delete键）
+    void onDeleteSelectedAddresses();
 };

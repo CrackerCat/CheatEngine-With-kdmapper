@@ -25,6 +25,7 @@
 #include <QApplication>
 #include <QStatusBar>
 #include <QStringList>
+#include <QShortcut>
 #include <cstring>
 
 // ==================== 构造与析构 ====================
@@ -147,7 +148,10 @@ void MainWindow::replaceAddressTable()
         addressView = new QTableView(this);
         addressView->setModel(addressModel);
         addressView->setSelectionBehavior(QAbstractItemView::SelectRows);
-        addressView->setSelectionMode(QAbstractItemView::SingleSelection);
+        addressView->setSelectionMode(QAbstractItemView::ExtendedSelection);
+        // 右键菜单
+        addressView->setContextMenuPolicy(Qt::CustomContextMenu);
+        addressView->setToolTipDuration(3000);
 
         addressView->horizontalHeader()->setStretchLastSection(false);
         // 所有列默认按比例拉伸填满整个视图宽度，同时允许用户拖动改变单列宽度
@@ -156,7 +160,7 @@ void MainWindow::replaceAddressTable()
         addressView->setColumnWidth(AddressListModel::ColFrozen, 60);
         addressView->horizontalHeader()->setSectionResizeMode(AddressListModel::ColDescription, QHeaderView::Interactive);
         addressView->setColumnWidth(AddressListModel::ColDescription, 120);
-        addressView->horizontalHeader()->setSectionResizeMode(AddressListModel::ColAddress, QHeaderView::Stretch);
+        addressView->horizontalHeader()->setSectionResizeMode(AddressListModel::ColAddress, QHeaderView::Interactive);
         addressView->setColumnWidth(AddressListModel::ColAddress, 150);
         addressView->horizontalHeader()->setSectionResizeMode(AddressListModel::ColValue, QHeaderView::Interactive);
         addressView->setColumnWidth(AddressListModel::ColValue, 150);
@@ -190,22 +194,12 @@ void MainWindow::replaceAddressTable()
 // ==================== 定时器 ====================
 void MainWindow::initTimers()
 {
-    // 数据冻结功能定时器
+    // 数据冻结功能定时器 — 通过模型统一处理
     freezeTimer = new QTimer(this);
     connect(freezeTimer, &QTimer::timeout, this, [this]() {
-        auto& items = addressModel->items();
         auto mem = ProcessManager::instance().memory();
-        if (!mem) return;
-        for (auto& item : items) {
-            if (item.frozen) {
-                if (isStringValueType(item.type) || isByteArrayValueType(item.type)) {
-                    if (!item.buffer.empty())
-                        mem->write(item.address, item.buffer.data(), item.buffer.size());
-                } else {
-                    mem->write(item.address, &item.rawValue, valueTypeSize(item.type));
-                }
-            }
-        }
+        if (mem)
+            addressModel->freezeAll(mem);
         });
     freezeTimer->start(500);
 
@@ -351,6 +345,25 @@ void MainWindow::connectSignals()
     connect(ui->pushButton_delete_all_address, &QPushButton::clicked, this, [this]() {
         addressModel->clear();
         });
+
+    // ── 地址列表右键菜单 ──
+    connect(addressView, &QTableView::customContextMenuRequested, this, [this](const QPoint& pos) {
+        if (!addressView->selectionModel() || !addressView->selectionModel()->hasSelection())
+            return;
+        QMenu menu;
+        QAction* deleteAction = menu.addAction(tr("删除选中地址"));
+        connect(deleteAction, &QAction::triggered, this, &MainWindow::onDeleteSelectedAddresses);
+
+        // 如果启用了 Shift/Frozen 等额外功能，可以在这里继续添加
+
+        menu.exec(addressView->viewport()->mapToGlobal(pos));
+    });
+
+    // ── Delete键删除选中地址 ──
+    {
+        QShortcut* deleteShortcut = new QShortcut(QKeySequence(Qt::Key_Delete), addressView);
+        connect(deleteShortcut, &QShortcut::activated, this, &MainWindow::onDeleteSelectedAddresses);
+    }
 
     connect(ui->comboBox_atribute_For_Find, QOverload<int>::of(&QComboBox::currentIndexChanged),
         this, &MainWindow::refreshUiControls);
@@ -1176,50 +1189,19 @@ void MainWindow::onDoubleClickAddressList(const QModelIndex& index)
     int col = index.column();
     int row = index.row();
     if (col != AddressListModel::ColAddress) return;
-    if (row < 0 || row >= addressModel->items().size()) return;
+    if (row < 0 || row >= addressModel->itemCount()) return;
 
-    const auto& item = addressModel->items()[row];
+    const auto& item = addressModel->itemAt(row);
 
-    // 使用 Add_Or_Change_Address_Dialog 编辑
-    Add_Or_Change_Address_Dialog dlg(this,
-        Add_Or_Change_Address_Dialog::Mode::Edit,
-        item.address,
-        item.description,
-        item.type);
+    // ★ 将 AddressItem 完整状态导出为 Config，传递给对话框
+    AddressItem::Config config = item.toConfig();
 
-    // 预填 Hex/Signed 显示模式
-    dlg.hexDisplay();   // 访问默认值
+    Add_Or_Change_Address_Dialog dlg(this, config, true); // true = 编辑模式
 
     if (dlg.exec() == QDialog::Accepted) {
-        // 更新地址列表中的条目
-        auto& mutableItem = addressModel->items()[row];
-        mutableItem.address = dlg.address();
-        mutableItem.description = dlg.description();
-        mutableItem.type = dlg.valueType();
-        mutableItem.hexDisplay = dlg.hexDisplay();
-        mutableItem.signedDisplay = dlg.signedDisplay();
-
-        // 字符串类型：读取编码和长度
-        if (isStringValueType(mutableItem.type)) {
-            mutableItem.encoding = dlg.encoding();
-            int len = dlg.stringLength();
-            mutableItem.stringLength = len;
-            mutableItem.buffer.resize(len);
-            auto mem = ProcessManager::instance().memory();
-            if (mem)
-                mem->read(mutableItem.address, mutableItem.buffer.data(), len);
-        }
-
-        // 从内存重读值
-        auto mem = ProcessManager::instance().memory();
-        if (mem) {
-            if (isStringValueType(mutableItem.type) || isByteArrayValueType(mutableItem.type)) {
-                mutableItem.buffer.resize(mutableItem.stringLength > 0 ? mutableItem.stringLength : 32);
-                mem->read(mutableItem.address, mutableItem.buffer.data(), mutableItem.buffer.size());
-            } else {
-                mem->read(mutableItem.address, &mutableItem.rawValue, valueTypeSize(mutableItem.type));
-            }
-        }
+        // ★ 直接取回完整 Config 传给模型更新，确保所有属性（指针链、编码等）完整传递
+        AddressItem::Config newConfig = dlg.resultConfig();
+        addressModel->updateItem(row, newConfig);
     }
 }
 
@@ -1843,56 +1825,47 @@ void MainWindow::onAboutDonate()
 
 void MainWindow::onAddAddressManually()
 {
-    Add_Or_Change_Address_Dialog dlg(this,
-        Add_Or_Change_Address_Dialog::Mode::Add,
-        0, "", ValueType::Int32);
+    // 空 Config — 默认 Int32
+    AddressItem::Config config;
+    config.type = ValueType::Int32;
+
+    Add_Or_Change_Address_Dialog dlg(this, config, false);
 
     if (dlg.exec() == QDialog::Accepted) {
-        uint64_t addr = dlg.address();
-        if (addr == 0) return;
+        AddressItem::Config result = dlg.resultConfig();
 
-        ValueType vt = dlg.valueType();
-        QString desc = dlg.description();
-        if (desc.isEmpty())
-            desc = QString("0x%1").arg(addr, 16, 16, QChar('0'));
+        if (result.address == 0) return;
 
-        // 从内存读取当前值
-        auto mem = ProcessManager::instance().memory();
-        uint64_t rawValue = 0;
+        if (result.description.isEmpty())
+            result.description = QString("0x%1").arg(result.address, 16, 16, QChar('0'));
 
-        if (isStringValueType(vt)) {
-            // 字符串类型
-            int len = dlg.stringLength();
-            std::vector<uint8_t> buf(len);
-            if (mem)
-                mem->read(addr, buf.data(), len);
-            addressModel->addItem(addr, desc, 0, vt);
-            // 设置字符串属性
-            auto& newItem = addressModel->items().back();
-            newItem.encoding = dlg.encoding();
-            newItem.stringLength = len;
-            newItem.buffer = std::move(buf);
-            newItem.hexDisplay = dlg.hexDisplay();
-            newItem.signedDisplay = dlg.signedDisplay();
-        } else if (isByteArrayValueType(vt)) {
-            // 字节数组类型
-            int len = dlg.stringLength();
-            std::vector<uint8_t> buf(len);
-            if (mem)
-                mem->read(addr, buf.data(), len);
-            addressModel->addItem(addr, desc, 0, vt);
-            auto& newItem = addressModel->items().back();
-            newItem.stringLength = len;
-            newItem.buffer = std::move(buf);
-            newItem.hexDisplay = dlg.hexDisplay();
-        } else {
-            // 数值类型
-            if (mem)
-                mem->read(addr, &rawValue, valueTypeSize(vt));
-            addressModel->addItem(addr, desc, rawValue, vt);
-            auto& newItem = addressModel->items().back();
-            newItem.hexDisplay = dlg.hexDisplay();
-            newItem.signedDisplay = dlg.signedDisplay();
+        // ★ 直接用 resultConfig 创建条目（包含所有属性：指针链、编码、buffer 等）
+        int row = addressModel->addItem(result.address, result.description, 0, result.type, result.pointerChain);
+
+        // ★ 补全 Hex/Signed/编码/长度/buffer 等属性
+        addressModel->updateItem(row, result);
+    }
+}
+
+void MainWindow::onDeleteSelectedAddresses()
+{
+    if (!addressView || !addressModel) return;
+
+    auto selModel = addressView->selectionModel();
+    if (!selModel || !selModel->hasSelection()) return;
+
+    QModelIndexList selectedRows = selModel->selectedRows();
+    if (selectedRows.isEmpty()) return;
+
+    // 从大到小排序，方便逐个删除
+    std::sort(selectedRows.begin(), selectedRows.end(),
+              [](const QModelIndex& a, const QModelIndex& b) {
+                  return a.row() > b.row();
+              });
+
+    for (const QModelIndex& idx : selectedRows) {
+        if (idx.row() >= 0 && idx.row() < addressModel->itemCount()) {
+            addressModel->removeItem(idx.row());
         }
     }
 }
