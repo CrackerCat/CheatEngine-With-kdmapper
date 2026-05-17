@@ -8,6 +8,17 @@
 // 扫描比较操作类型
 enum class SimdOp { Equal, Greater, Less, NotEqual };
 
+// 反转 SIMD 操作符：Equal ↔ NotEqual, Greater ↔ Less
+inline SimdOp invertSimdOp(SimdOp op) {
+    switch (op) {
+    case SimdOp::Equal:    return SimdOp::NotEqual;
+    case SimdOp::NotEqual: return SimdOp::Equal;
+    case SimdOp::Greater:  return SimdOp::Less;
+    case SimdOp::Less:     return SimdOp::Greater;
+    }
+    return op;
+}
+
 /**
  * @brief SIMD 比较内核
  * @tparam DataType 被扫描的数据类型 (如 int8_t, int32_t, float, double)

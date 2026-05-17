@@ -42,6 +42,9 @@ public:
 
 	uint64_t getAddressAtIndex(size_t index) const;
 
+	/// 获取指定索引的 matchedType（All 扫描时每个地址记录自己的匹配类型）
+	ScanDataType getMatchedTypeAtIndex(size_t index) const;
+
 	int getCurrentGeneration() const;
 
 	/// 返回当前结果总数（无锁，用于 UI 线程估算）

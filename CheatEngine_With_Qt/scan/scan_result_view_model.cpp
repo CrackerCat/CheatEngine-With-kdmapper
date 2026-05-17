@@ -82,12 +82,16 @@ void ScanResultViewModel::rebuildAllCaches() {
 		// 缓存基址标记用于颜色高亮
 		m_cacheIsBase[i] = m_valueProvider->isModuleBase(addr);
 
+		// ★ All 模式下统一用 m_displayType 显示（所有行相同类型）
+		//    用户如果想看其他类型的值，可以切换显示类型；导入地址列表后手动选类型
+		ScanDataType effectiveType = m_displayType;
+
 		// 从磁盘快照读取历史值并转为字符串（涉及文件 IO）
-		m_cachePrevious[i] = m_valueProvider->getPreviousValue(addr, m_displayType);
-		m_cacheFirst[i] = m_valueProvider->getFirstValue(addr, m_displayType);
+		m_cachePrevious[i] = m_valueProvider->getPreviousValue(addr, effectiveType);
+		m_cacheFirst[i] = m_valueProvider->getFirstValue(addr, effectiveType);
 
 		// 填充初始当前值
-		m_cacheCurrent[i] = m_valueProvider->getCurrentValue(addr, m_displayType);
+		m_cacheCurrent[i] = m_valueProvider->getCurrentValue(addr, effectiveType);
 	}
 
 	// 6. 通知过滤计数变化（用于更新 UI 标签）
@@ -142,8 +146,11 @@ bool ScanResultViewModel::updateRowCache(int row) {
 	size_t realIdx = m_filteredIndices[row];
 	uint64_t addr = m_repo->getAddressAtIndex(realIdx);
 
+	// ★ All 模式统一使用 m_displayType
+	ScanDataType effectiveType = m_displayType;
+
 	// 从目标进程实时读取内存（涉及系统调用）
-	std::string newVal = m_valueProvider->getCurrentValue(addr, m_displayType);
+	std::string newVal = m_valueProvider->getCurrentValue(addr, effectiveType);
 
 	// 只有当字符串发生变化时才更新，减少 UI 刷新压力
 	if (newVal != m_cacheCurrent[row]) {

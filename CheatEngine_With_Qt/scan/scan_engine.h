@@ -80,6 +80,25 @@ private:
 	void dispatchScan(const ScanRequest& req, const std::vector<ScanResult>& prevResults,
 		std::shared_ptr<AdaptiveCachePool<ScanResult>> outCache);
 
+	// ---- All 特殊扫描（同时匹配所有数值类型）----
+	void dispatchAllScan(const ScanRequest& req, const std::vector<ScanResult>& prevResults,
+		std::shared_ptr<AdaptiveCachePool<ScanResult>> outCache);
+
+	void taskFirstScanAll(const ScanRequest& req, MemoryRegion region,
+		std::shared_ptr<IProcessMemorySnapshot> currentSnap,
+		std::shared_ptr<AdaptiveCachePool<ScanResult>> outCache);
+
+	void taskNextScanAll(const ScanRequest& req,
+		const std::vector<ScanResult>& oldBatch,
+		std::shared_ptr<IProcessMemorySnapshot> currentSnapshot,
+		std::shared_ptr<IProcessMemorySnapshot> previousSnapshot,
+		std::shared_ptr<AdaptiveCachePool<ScanResult>> outCache);
+
+	void taskFullScanWithNextConditionAll(const ScanRequest& req, MemoryRegion region,
+		std::shared_ptr<IProcessMemorySnapshot> currentSnapshot,
+		std::shared_ptr<IProcessMemorySnapshot> previousSnapshot,
+		std::shared_ptr<AdaptiveCachePool<ScanResult>> outCache);
+
 	template <typename T>
 	void taskFirstScan(const ScanRequest& req, MemoryRegion region,
 		std::shared_ptr<IProcessMemorySnapshot> currentSnapshot,

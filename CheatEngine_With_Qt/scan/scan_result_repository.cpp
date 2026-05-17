@@ -81,6 +81,19 @@ uint64_t ScanResultRepository::getAddressAtIndex(size_t index) const
     return (index < m_result_data.size()) ? m_result_data[index].address : 0;
 }
 
+ScanDataType ScanResultRepository::getMatchedTypeAtIndex(size_t index) const
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (m_result_pool) {
+        auto chunk = m_result_pool->readChunk(index, 1);
+        if (!chunk.empty()) {
+            return chunk[0].matchedType;
+        }
+        return ScanDataType::Int32; // fallback
+    }
+    return (index < m_result_data.size()) ? m_result_data[index].matchedType : ScanDataType::Int32;
+}
+
 int ScanResultRepository::getCurrentGeneration() const
 {
     return m_generation.load();

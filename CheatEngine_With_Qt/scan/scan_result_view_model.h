@@ -48,7 +48,7 @@ public:
     QVariant headerData(int section, Qt::Orientation orientation, int role) const override;
 
     // 辅助工具
-    uint64_t getAddress(int row) const ;
+    uint64_t getAddress(int row) const;
 
 signals:
     /// @brief 当过滤结果总数变化时发出（用于更新显示标签）

@@ -159,6 +159,7 @@ using ScanParams = std::variant<ValueParams, StringParams, AobParams, StructureP
 struct ScanResult
 {
     uint64_t address;
+    ScanDataType matchedType = ScanDataType::All; // All扫描时记录此地址匹配的类型；非All扫描时忽略
 };
 
 
@@ -183,6 +184,7 @@ struct ScanRequest {
 
     bool percentMode = false;
     bool containApproximateValue = false;
+    bool notMatch = false;          // 勾选"非"时反转匹配条件
 
     std::shared_ptr<const std::vector<ScanResult>> prevResults = nullptr;
 };

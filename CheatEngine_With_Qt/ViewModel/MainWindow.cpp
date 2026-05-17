@@ -161,9 +161,7 @@ void MainWindow::replaceAddressTable()
         addressView->horizontalHeader()->setSectionResizeMode(AddressListModel::ColDescription, QHeaderView::Interactive);
         addressView->setColumnWidth(AddressListModel::ColDescription, 120);
         addressView->horizontalHeader()->setSectionResizeMode(AddressListModel::ColAddress, QHeaderView::Interactive);
-        addressView->setColumnWidth(AddressListModel::ColAddress, 150);
-        addressView->horizontalHeader()->setSectionResizeMode(AddressListModel::ColValue, QHeaderView::Interactive);
-        addressView->setColumnWidth(AddressListModel::ColValue, 150);
+        addressView->setColumnWidth(AddressListModel::ColAddress, 160);
         addressView->horizontalHeader()->setSectionResizeMode(AddressListModel::ColType, QHeaderView::Fixed);
         addressView->setColumnWidth(AddressListModel::ColType, 90);
         addressView->horizontalHeader()->setSectionResizeMode(AddressListModel::ColDisplayMode, QHeaderView::Fixed);
@@ -172,7 +170,7 @@ void MainWindow::replaceAddressTable()
         addressView->setColumnWidth(AddressListModel::ColSigned, 85);
         addressView->horizontalHeader()->setSectionResizeMode(AddressListModel::ColLength, QHeaderView::Fixed);
         addressView->setColumnWidth(AddressListModel::ColLength, 75);
-        // 启用交互式拉伸：用户拖动某列后，该列自动转为 Interactive，其余列按新宽度重新 Stretch 填充
+        addressView->horizontalHeader()->setSectionResizeMode(AddressListModel::ColValue, QHeaderView::Stretch);
         
 
         // 为 Type 列设置下拉框委托
@@ -468,8 +466,23 @@ void MainWindow::connectSignals()
         refreshUiControls();
     });
 
-    // ★ 字节数组 + Hex 模式：自动每 2 字符加空格（如 "EABE?E?A" → "EA BE ?E ?A"）
+    // 输入框内容变化：自动检测 0x 前缀 → 勾选 Hex 复选框
     connect(ui->lineEdit_ValueInput, &QLineEdit::textChanged, this, [this](const QString& text) {
+        // ── 常规数据类型：输入 0x 开头时自动勾选 Hex ──
+        {
+            ScanDataType dt = parseDataTypeFromUI();
+            bool isNumericMode = !isStringType(dt) && dt != ScanDataType::ByteArray
+                                 && dt != ScanDataType::Structure;
+            if (isNumericMode && text.startsWith("0x", Qt::CaseInsensitive)
+                && !ui->checkBox_Hex_Value->isChecked())
+            {
+                ui->checkBox_Hex_Value->blockSignals(true);
+                ui->checkBox_Hex_Value->setChecked(true);
+                ui->checkBox_Hex_Value->blockSignals(false);
+            }
+        }
+
+        // ── 字节数组 + Hex 模式：自动每 2 字符加空格 ──
         if (parseDataTypeFromUI() != ScanDataType::ByteArray) return;
         if (!ui->checkBox_Hex_Value->isChecked()) return; // 十进制模式不自动格式化
         if (m_updatingAobInput) return;
@@ -907,6 +920,7 @@ ScanRequest MainWindow::buildScanRequest(ScanMode mode) const
     // ===== 其他 UI 选项 =====
     req.percentMode = ui->checkBox_percent->isChecked();
     req.containApproximateValue = ui->checkBox_contain_approximate_value->isChecked();
+    req.notMatch = ui->checkBox_Not->isChecked();
 
     // 根据模式填充参数
     if (req.dataType == ScanDataType::Structure) {
@@ -1167,6 +1181,8 @@ void MainWindow::addSelectedScanRowsToAddressList()
 
     if (addresses.empty()) return;
 
+    // ★ 无论是否 All 扫描，都用统一类型添加到地址列表
+    //    用户在地址列表中可以随时切换每行的类型
     addressModel->addItemsFromScanResults(addresses, addressTexts, displayType);
 }
 

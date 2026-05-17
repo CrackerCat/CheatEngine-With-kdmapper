@@ -225,11 +225,11 @@ QVariant AddressListModel::headerData(int section, Qt::Orientation orientation, 
     case ColFrozen:      return "Frozen";
     case ColDescription: return "Description";
     case ColAddress:     return "Address";
-    case ColValue:       return "Value";
     case ColType:        return "Type";
     case ColDisplayMode: return "Display";
     case ColSigned:      return "Signed";
     case ColLength:      return "Length";
+    case ColValue:       return "Value";
     }
     return {};
 }
@@ -557,6 +557,7 @@ int AddressListModel::addItem(uint64_t address, const QString& description,
 }
 
 void AddressListModel::addItems(const std::vector<AddressItem>& newItems)
+
 {
     if (newItems.empty()) return;
     beginInsertRows(QModelIndex(), m_items.size(), m_items.size() + newItems.size() - 1);

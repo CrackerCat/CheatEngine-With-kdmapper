@@ -719,24 +719,24 @@ Github项目地址</source>
         <translation>find address  %1  list_address&#x3000;&#x3000;%2</translation>
     </message>
     <message>
-        <location line="+430"/>
-        <location line="+901"/>
+        <location line="+443"/>
+        <location line="+904"/>
         <source>首次扫描</source>
         <translation>FirstScan</translation>
     </message>
     <message>
-        <location line="-1310"/>
-        <location line="+414"/>
+        <location line="-1326"/>
+        <location line="+427"/>
         <location line="+5"/>
         <location line="+332"/>
-        <location line="+190"/>
-        <location line="+147"/>
+        <location line="+191"/>
+        <location line="+149"/>
         <location line="+5"/>
         <source>全部模块</source>
         <translation>All modules</translation>
     </message>
     <message>
-        <location line="-1170"/>
+        <location line="-1186"/>
         <source>语言</source>
         <translation>language</translation>
     </message>
@@ -752,12 +752,12 @@ Github项目地址</source>
     </message>
     <message>
         <location line="+3"/>
-        <location line="+1656"/>
+        <location line="+1672"/>
         <source>软件捐赠 / 关于</source>
         <translation>Software Donate/About</translation>
     </message>
     <message>
-        <location line="-1647"/>
+        <location line="-1663"/>
         <source>选中时，浮点数搜索包含近似值（如搜 521 可匹配 520.xxx ~ 521.xxx 范围内的值）；
 不选中时，取浮点数的精确位级匹配</source>
         <translation type="unfinished"></translation>
@@ -773,20 +773,20 @@ Github项目地址</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+239"/>
+        <location line="+237"/>
         <source>删除选中地址</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+222"/>
+        <location line="+237"/>
         <location line="+240"/>
         <location line="+16"/>
         <location line="+6"/>
         <location line="+8"/>
-        <location line="+88"/>
+        <location line="+89"/>
         <location line="+5"/>
         <location line="+38"/>
-        <location line="+616"/>
+        <location line="+618"/>
         <location line="+9"/>
         <location line="+10"/>
         <location line="+17"/>
@@ -804,7 +804,7 @@ Github项目地址</source>
         <translation>Error</translation>
     </message>
     <message>
-        <location line="-1306"/>
+        <location line="-1309"/>
         <source>附加进程失败.</source>
         <translation>Attach process_fail</translation>
     </message>
@@ -850,12 +850,12 @@ Github项目地址</source>
     </message>
     <message>
         <location line="+1"/>
-        <location line="+427"/>
+        <location line="+428"/>
         <source>字节数组</source>
         <translation>Array of Byte</translation>
     </message>
     <message>
-        <location line="-426"/>
+        <location line="-427"/>
         <source>所有类型 (整数和浮点小数)</source>
         <translation>All (inter and float)</translation>
     </message>
@@ -881,17 +881,17 @@ Github项目地址</source>
     </message>
     <message>
         <location line="+8"/>
-        <location line="+131"/>
+        <location line="+132"/>
         <source>无效的输入数值.</source>
         <translation>invalide value</translation>
     </message>
     <message>
-        <location line="-119"/>
+        <location line="-120"/>
         <source>正在初始化扫描...</source>
         <translation>initialing Scaning</translation>
     </message>
     <message>
-        <location line="+76"/>
+        <location line="+77"/>
         <source>没有附加进程.</source>
         <translation>No Process Attach</translation>
     </message>
@@ -1012,7 +1012,7 @@ Github项目地址</source>
         <translation>Scaning %1% (Region %2 / %3)</translation>
     </message>
     <message>
-        <location line="+91"/>
+        <location line="+93"/>
         <source>请选择进程</source>
         <translation>please seletct a process</translation>
     </message>

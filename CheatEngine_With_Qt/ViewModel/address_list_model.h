@@ -14,11 +14,11 @@ public:
         ColFrozen = 0,      // 冻结列（CheckBox）
         ColDescription,
         ColAddress,
-        ColValue,
         ColType,
         ColDisplayMode,     // 数据呈现方式列（CheckBox 形式，单击切换）
         ColSigned,          // 有符号/无符号开关列（CheckBox 形式，单击切换，仅整数类型）
         ColLength,          // 长度列（字符串/字节数组的长度）
+        ColValue,           // 值列（放到最后，默认 Stretch 拉伸）
         ColumnCount_
     };
 
