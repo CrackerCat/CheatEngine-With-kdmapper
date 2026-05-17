@@ -3,7 +3,7 @@
 #include <vector>
 #include <unordered_set>
 #include <QString>
-#include "type_define/address_item.h"
+#include "address_list/address_item.h"
 
 class AddressListModel : public QAbstractTableModel
 {
@@ -47,13 +47,18 @@ public:
 
     /// 添加单个地址（含指针链），自动去重，返回新条目所在行号（重复则返回 -1）
     int addItem(uint64_t address, const QString& description,
-                uint64_t rawValue, ValueType type = ValueType::Int32,
+                uint64_t rawValue, AddressItem::Type type = AddressItem::Type::Int32,
                 const PointerChain& pointerChain = {});
 
     /// 批量从扫描结果添加，自动去重（自动读取当前值）
+    /// @param addresses 地址列表
+    /// @param addressTexts 地址显示文本
+    /// @param scanDataType 扫描时的数据类型
+    /// @param perAddressTypes 可选：All 模式下每个地址的实际匹配类型，nullptr 表示统一使用 scanDataType
     void addItemsFromScanResults(const std::vector<uint64_t>& addresses,
                                  const std::vector<std::string>& addressTexts,
-                                 ScanDataType scanDataType);
+                                 ScanDataType scanDataType,
+                                 const std::vector<ScanDataType>* perAddressTypes = nullptr);
 
     /// 用 ItemUpdate 更新指定行
     void updateItem(int row, const ItemUpdate& update);
@@ -66,13 +71,6 @@ public:
 
     /// 冻结定时器：将所有冻结项的当前值写回内存
     void freezeAll(std::shared_ptr<class IMemoryAccessor> mem);
-
-    /// 查找某个条目的行号（按指针相等比较）
-    int findRow(const AddressItem* ptr) const;
-
-signals:
-    /// 当数据被外部更新（如 freezeAll）后发出，视图需要刷新
-    void dataRefreshed();
 
 private:
     /// 内部批量追加（由 addItemsFromScanResults 使用，不含去重）

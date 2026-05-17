@@ -1,6 +1,27 @@
 #include "scan\scan_result_repository.h"
 #include <cstring>
 
+// 辅助函数：将 All 类型的 typeMask 转换为 UI 展示用的首选数据类型
+// 小→大优先级：Byte(0)→Int16(1)→Int32(2)→Float32(4)→Int64(3)→Float64(5)
+static ScanDataType typeMaskToPrimaryType(uint16_t mask) {
+    static constexpr int kSmallFirst[] = { 0, 1, 2, 4, 3, 5 };
+    static constexpr ScanDataType kTypeMap[] = {
+        ScanDataType::Int8,    // 0
+        ScanDataType::Int16,   // 1
+        ScanDataType::Int32,   // 2
+        ScanDataType::Int64,   // 3
+        ScanDataType::Float32, // 4
+        ScanDataType::Float64  // 5
+    };
+    if (mask == 0) return ScanDataType::Int32; // fallback
+    for (int ti : kSmallFirst) {
+        if (mask & (1 << ti)) {
+            return kTypeMap[ti];
+        }
+    }
+    return ScanDataType::Int32;
+}
+
 void ScanResultRepository::replaceAllResults(std::vector<ScanResult>&& newResults) {
     std::lock_guard<std::mutex> lock(m_mutex);
     // 如果之前是池模式，释放池
@@ -84,14 +105,16 @@ uint64_t ScanResultRepository::getAddressAtIndex(size_t index) const
 ScanDataType ScanResultRepository::getMatchedTypeAtIndex(size_t index) const
 {
     std::lock_guard<std::mutex> lock(m_mutex);
+    uint16_t mask = 0;
     if (m_result_pool) {
         auto chunk = m_result_pool->readChunk(index, 1);
         if (!chunk.empty()) {
-            return chunk[0].matchedType;
+            mask = chunk[0].typeMask;
         }
-        return ScanDataType::Int32; // fallback
+    } else if (index < m_result_data.size()) {
+        mask = m_result_data[index].typeMask;
     }
-    return (index < m_result_data.size()) ? m_result_data[index].matchedType : ScanDataType::Int32;
+    return typeMaskToPrimaryType(mask);
 }
 
 int ScanResultRepository::getCurrentGeneration() const
@@ -140,10 +163,10 @@ std::vector<ScanResult> ScanResultRepository::getResults() const {
         // ★ 把整个池读到内存（危险！但调用方需要全量结果时只能这样）
         //    此方法应尽可能避免使用，保留以兼容现有代码
         size_t total = m_result_pool->total_size();
-        if (total > 10'000'000) {
-            // 超过 1 千万条：返回空，防止撑爆内存
-            return {};
-        }
+        // if (total > 10'000'000) {
+        //     // 超过 1 千万条：返回空，防止撑爆内存
+        //     return {};
+        // }
         return m_result_pool->readChunk(0, total);
     }
     return m_result_data; // 返回拷贝以确保线程安全

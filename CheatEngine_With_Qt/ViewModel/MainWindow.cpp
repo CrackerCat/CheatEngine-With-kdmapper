@@ -4,16 +4,16 @@
 #include "ui_CheatEngine_With_Qt.h"
 #include "ui_Add_Or_Change_Address.h"
 #include "ui_About.h"
-#include "ViewModel\address_list_model.h"
-#include "ViewModel\type_delegate.h"
-#include "ViewModel\display_mode_delegate.h"
+#include "address_list\address_list_model.h"
+#include "address_list\type_delegate.h"
+#include "address_list\display_mode_delegate.h"
 #include "ViewModel\process_dialog.h"
 #include "process\process_manager.h"
 #include "scan\scan_service.h"
 #include "scan\scan_result_view_model.h"
 #include "scan\scan_data_stream_define.h"
 #include "language_translations\translator_manager.h"
-#include "ViewModel\Add_Or_Change_Address.h"
+#include "address_list\Add_Or_Change_Address.h"
 
 #include <QTimer>
 #include <QTableView>
@@ -1167,6 +1167,12 @@ void MainWindow::addSelectedScanRowsToAddressList()
 
     ScanDataType displayType = m_resultModel->getDisplayType();
 
+    // ★ All 模式需要为每个地址单独收集匹配类型
+    std::vector<ScanDataType> perAddressTypes;
+    if (displayType == ScanDataType::All) {
+        perAddressTypes.reserve(selectedRows.size());
+    }
+
     for (const QModelIndex& rowIdx : selectedRows) {
         uint64_t addr = m_resultModel->getAddress(rowIdx.row());
         if (addr == 0) continue;
@@ -1177,13 +1183,19 @@ void MainWindow::addSelectedScanRowsToAddressList()
         QModelIndex addrColIdx = m_resultModel->index(rowIdx.row(), 0);
         QString disp = m_resultModel->data(addrColIdx, Qt::DisplayRole).toString();
         addressTexts.push_back(disp.toStdString());
+
+        // ★ All 模式下记录每地址的实际匹配类型
+        if (displayType == ScanDataType::All) {
+            perAddressTypes.push_back(m_resultModel->getMatchedType(rowIdx.row()));
+        }
     }
 
     if (addresses.empty()) return;
 
-    // ★ 无论是否 All 扫描，都用统一类型添加到地址列表
-    //    用户在地址列表中可以随时切换每行的类型
-    addressModel->addItemsFromScanResults(addresses, addressTexts, displayType);
+    // ★ All 模式：传递每地址的独立类型；非 All 模式：统一使用 displayType
+    addressModel->addItemsFromScanResults(addresses, addressTexts,
+        displayType,
+        displayType == ScanDataType::All ? &perAddressTypes : nullptr);
 }
 
 void MainWindow::onDoubleClickScanResult(const QModelIndex& index)
@@ -1424,8 +1436,9 @@ UiContext MainWindow::computeUiContext() const
     }
 
     ctx.showHex = (!ctx.isStringMode && !ctx.isStructureMode
-        && !isFloatingPoint(ctx.dataType) && !ctx.isAllMode)  // 常规数值
-        || ctx.isByteArrayMode;                                // 字节数组始终显示 Hex
+        && !isFloatingPoint(ctx.dataType))  // 常规数值（含 All）
+        || ctx.isByteArrayMode              // 字节数组始终显示 Hex
+        || ctx.isAllMode;                   // All 类型扫描时也显示 Hex
     if (ctx.isFirstScan && ctx.firstScanType == ScanType::UnknownInitial) ctx.showHex = false;
     if (!ctx.isFirstScan && ctx.inputFieldsNeeded == 0) ctx.showHex = false;
 
@@ -1438,11 +1451,10 @@ UiContext MainWindow::computeUiContext() const
     ctx.showNot = !ctx.isStringMode && !ctx.isByteArrayMode && !ctx.isStructureMode
         && ctx.inputFieldsNeeded > 0;
 
-    ctx.showContainApproximateValue = isFloatingPoint(ctx.dataType)
+    ctx.showContainApproximateValue = (isFloatingPoint(ctx.dataType) || ctx.isAllMode)
         && !ctx.isStringMode
         && !ctx.isByteArrayMode
-        && !ctx.isStructureMode
-        && !ctx.isAllMode;
+        && !ctx.isStructureMode;
 
     // ---- 按钮启用 ----
     if (ctx.isScanning) {
@@ -1843,7 +1855,7 @@ void MainWindow::onAddAddressManually()
 {
     // 空 Config — 默认 Int32
     AddressItem::Config config;
-    config.type = ValueType::Int32;
+    config.type = AddressItem::Type::Int32;
 
     Add_Or_Change_Address_Dialog dlg(this, config, false);
 

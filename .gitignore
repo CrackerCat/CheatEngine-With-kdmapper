@@ -8,6 +8,7 @@
 *.7z
 *.tar.gz
 
+
 /Debug/
 /Release/
 /DBK_Tiny/x64/
@@ -23,3 +24,4 @@
 /CheatEngine_With_Qt/build/
 /CheatEngine_With_Qt/resource/AliPay.JPG
 /CheatEngine_With_Qt/resource/WeChatPay.JPG
+/CheatEngine_With_Qt/task_*.md

@@ -1,6 +1,6 @@
-#include "ViewModel\display_mode_delegate.h"
-#include "ViewModel\address_list_model.h"
-#include "type_define\address_item.h"
+#include "address_list/display_mode_delegate.h"
+#include "address_list/address_list_model.h"
+#include "address_list/address_item.h"
 
 #include <QComboBox>
 #include <QMouseEvent>
@@ -25,7 +25,7 @@ bool DisplayModeDelegate::editorEvent(QEvent* event,
     // 仅字符串类型的 DisplayMode 列需要单击弹出编辑器
     QModelIndex typeIdx = index.sibling(index.row(), AddressListModel::ColType);
     QString typeText = typeIdx.data(Qt::DisplayRole).toString();
-    if (typeText == "String" && event->type() == QEvent::MouseButtonRelease) {
+    if (typeText == AddressItem::typeName(AddressItem::Type::String) && event->type() == QEvent::MouseButtonRelease) {
         QMouseEvent* mouseEvent = static_cast<QMouseEvent*>(event);
         if (mouseEvent->button() == Qt::LeftButton) {
             QObject* p = parent();
@@ -51,11 +51,11 @@ QWidget* DisplayModeDelegate::createEditor(QWidget* parent,
     QString typeText = typeIdx.data(Qt::DisplayRole).toString();
 
     // 仅字符串类型需要编辑器（点击切换编码）
-    if (typeText == "String") {
+    if (typeText == AddressItem::typeName(AddressItem::Type::String)) {
         QComboBox* combo = new QComboBox(parent);
-        combo->addItem("ASCII", static_cast<int>(StringEncoding::ASCII));
-        combo->addItem("UTF-8", static_cast<int>(StringEncoding::UTF8));
-        combo->addItem("UTF-16", static_cast<int>(StringEncoding::UTF16));
+        combo->addItem("ASCII", static_cast<int>(AddressItem::Encoding::ASCII));
+        combo->addItem("UTF-8", static_cast<int>(AddressItem::Encoding::UTF8));
+        combo->addItem("UTF-16", static_cast<int>(AddressItem::Encoding::UTF16));
 
         // 用户选择下拉项后立即提交并关闭编辑器
         DisplayModeDelegate* nonConstThis = const_cast<DisplayModeDelegate*>(this);
@@ -106,7 +106,7 @@ void DisplayModeDelegate::updateEditorGeometry(QWidget* editor,
     editor->setGeometry(option.rect);
     // 字符串编码列：定位完成后立即展开下拉框
     QModelIndex typeIdx = index.sibling(index.row(), AddressListModel::ColType);
-    if (typeIdx.data(Qt::DisplayRole).toString() == "String") {
+    if (typeIdx.data(Qt::DisplayRole).toString() == AddressItem::typeName(AddressItem::Type::String)) {
         QComboBox* combo = qobject_cast<QComboBox*>(editor);
         if (combo)
             combo->showPopup();
@@ -123,7 +123,7 @@ void DisplayModeDelegate::paint(QPainter* painter,
     // 检查是否是字符串类型，是则绘制下拉箭头
     QModelIndex typeIdx = index.sibling(index.row(), AddressListModel::ColType);
     QString typeText = typeIdx.data(Qt::DisplayRole).toString();
-    if (typeText == "String") {
+    if (typeText == AddressItem::typeName(AddressItem::Type::String)) {
         QStyleOptionComboBox comboOption;
         comboOption.rect = option.rect;
         comboOption.rect.setLeft(option.rect.right() - 20);

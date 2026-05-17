@@ -4,7 +4,7 @@
 <context>
     <name>Add_Or_Change_Address_Dialog</name>
     <message>
-        <location filename="../ViewModel/Add_Or_Change_Address.cpp" line="+105"/>
+        <location filename="../address_list/Add_Or_Change_Address.cpp" line="+103"/>
         <source>修改地址</source>
         <translation>Edit_Address</translation>
     </message>
@@ -114,51 +114,6 @@
     <message>
         <location line="+7"/>
         <source>无效的基址格式。支持：0x地址、十进制数字、或&quot;模块名+0x偏移&quot;。</source>
-        <translation type="unfinished"></translation>
-    </message>
-</context>
-<context>
-    <name>AddressListModel</name>
-    <message>
-        <location filename="../ViewModel/address_list_model.cpp" line="+147"/>
-        <location line="+6"/>
-        <source>单击切换为十进制显示</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="-6"/>
-        <location line="+6"/>
-        <source>单击切换为16进制显示</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="-3"/>
-        <source>单击切换字符串编码</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+8"/>
-        <source>单击切换为无符号显示</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>单击切换为有符号显示</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+2"/>
-        <source>仅整数类型支持有符号/无符号切换</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+4"/>
-        <source>数据类型大小: %1 字节</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+3"/>
-        <source>数据长度: %1 字节（可编辑）</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -720,23 +675,23 @@ Github项目地址</source>
     </message>
     <message>
         <location line="+443"/>
-        <location line="+904"/>
+        <location line="+916"/>
         <source>首次扫描</source>
         <translation>FirstScan</translation>
     </message>
     <message>
-        <location line="-1326"/>
+        <location line="-1338"/>
         <location line="+427"/>
         <location line="+5"/>
         <location line="+332"/>
         <location line="+191"/>
-        <location line="+149"/>
+        <location line="+161"/>
         <location line="+5"/>
         <source>全部模块</source>
         <translation>All modules</translation>
     </message>
     <message>
-        <location line="-1186"/>
+        <location line="-1198"/>
         <source>语言</source>
         <translation>language</translation>
     </message>
@@ -752,12 +707,12 @@ Github项目地址</source>
     </message>
     <message>
         <location line="+3"/>
-        <location line="+1672"/>
+        <location line="+1684"/>
         <source>软件捐赠 / 关于</source>
         <translation>Software Donate/About</translation>
     </message>
     <message>
-        <location line="-1663"/>
+        <location line="-1675"/>
         <source>选中时，浮点数搜索包含近似值（如搜 521 可匹配 520.xxx ~ 521.xxx 范围内的值）；
 不选中时，取浮点数的精确位级匹配</source>
         <translation type="unfinished"></translation>
@@ -786,7 +741,7 @@ Github项目地址</source>
         <location line="+89"/>
         <location line="+5"/>
         <location line="+38"/>
-        <location line="+618"/>
+        <location line="+630"/>
         <location line="+9"/>
         <location line="+10"/>
         <location line="+17"/>
@@ -804,7 +759,7 @@ Github项目地址</source>
         <translation>Error</translation>
     </message>
     <message>
-        <location line="-1309"/>
+        <location line="-1321"/>
         <source>附加进程失败.</source>
         <translation>Attach process_fail</translation>
     </message>
@@ -1012,7 +967,7 @@ Github项目地址</source>
         <translation>Scaning %1% (Region %2 / %3)</translation>
     </message>
     <message>
-        <location line="+93"/>
+        <location line="+105"/>
         <source>请选择进程</source>
         <translation>please seletct a process</translation>
     </message>
@@ -1172,6 +1127,49 @@ Github项目地址</source>
         <location line="+19"/>
         <source>关闭</source>
         <translation>Close</translation>
+    </message>
+</context>
+<context>
+    <name>QObject</name>
+    <message>
+        <location filename="../address_list/address_item.cpp" line="+227"/>
+        <source>单击切换为十进制显示</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>单击切换为16进制显示</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>单击切换字符串编码</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>单击切换为无符号显示</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>单击切换为有符号显示</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>仅整数类型支持有符号/无符号切换</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>数据类型大小: %1 字节</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>数据长度: %1 字节（可编辑）</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 </TS>

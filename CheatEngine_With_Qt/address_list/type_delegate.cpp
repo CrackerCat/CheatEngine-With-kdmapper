@@ -1,6 +1,6 @@
-#include "ViewModel\type_delegate.h"
-#include "ViewModel\address_list_model.h"
-#include "type_define\address_item.h"
+#include "address_list/type_delegate.h"
+#include "address_list/address_list_model.h"
+#include "address_list/address_item.h"
 
 #include <QComboBox>
 #include <QPainter>
@@ -22,14 +22,11 @@ QWidget* TypeDelegate::createEditor(QWidget* parent,
     QComboBox* editor = new QComboBox(parent);
 
     // 添加所有可用的数据类型选项
-    editor->addItem("Byte",       static_cast<int>(ValueType::Int8));
-    editor->addItem("2 Bytes",    static_cast<int>(ValueType::Int16));
-    editor->addItem("4 Bytes",    static_cast<int>(ValueType::Int32));
-    editor->addItem("8 Bytes",    static_cast<int>(ValueType::Int64));
-    editor->addItem("Float",      static_cast<int>(ValueType::Float));
-    editor->addItem("Double",     static_cast<int>(ValueType::Double));
-    editor->addItem("String",     static_cast<int>(ValueType::String));
-    editor->addItem("Byte Array", static_cast<int>(ValueType::ByteArray));
+    auto types = AddressItem::getTypeOptions();
+    editor->addItems(types);
+    // 保存枚举值作为 item data
+    for (int i = 0; i < types.size(); ++i)
+        editor->setItemData(i, static_cast<int>(static_cast<AddressItem::Type>(i)));
 
     // 用户选择下拉项后立即提交并关闭编辑器，无需再点击其他位置
     TypeDelegate* nonConstThis = const_cast<TypeDelegate*>(this);
@@ -85,7 +82,7 @@ void TypeDelegate::setModelData(QWidget* editor,
     QComboBox* combo = qobject_cast<QComboBox*>(editor);
     if (!combo) return;
 
-    // 获取用户选中的 ValueType
+    // 获取用户选中的数据类型
     int selectedType = combo->currentData().toInt();
     // 通过 EditRole 写入模型，模型负责更新数据但不触发刷新（延迟刷新由 activated 连接处理）
     model->setData(index, selectedType, Qt::EditRole);

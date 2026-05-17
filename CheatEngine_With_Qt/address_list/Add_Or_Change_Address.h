@@ -8,7 +8,7 @@
 #include <QHBoxLayout>
 #include <memory>
 #include <vector>
-#include "type_define/address_item.h"
+#include "address_list/address_item.h"
 #include "ui_Add_Or_Change_Address.h"
 
 /// @brief "添加/修改地址"对话框

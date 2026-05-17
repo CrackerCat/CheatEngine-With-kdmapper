@@ -1,14 +1,12 @@
 #include "Add_Or_Change_Address.h"
 #include "process/process_manager.h"
 #include "interface/imemory_accessor.h"
-#include "type_define/address_item.h"
+#include "address_list/address_item.h"
 
 #include <QMessageBox>
 #include <QIntValidator>
 #include <QRegularExpression>
 #include <cstring>
-#include <cctype>
-#include <charconv>
 
 // ==================== 构造 ====================
 
@@ -110,9 +108,9 @@ void Add_Or_Change_Address_Dialog::setupUi()
     m_ui->lineEdit_base_pointer->setPlaceholderText("模块名+0x1234 或 0x12345678");
 
     m_ui->comboBox_encoding->clear();
-    m_ui->comboBox_encoding->addItem("ASCII",  static_cast<int>(StringEncoding::ASCII));
-    m_ui->comboBox_encoding->addItem("UTF-8",  static_cast<int>(StringEncoding::UTF8));
-    m_ui->comboBox_encoding->addItem("UTF-16", static_cast<int>(StringEncoding::UTF16));
+    m_ui->comboBox_encoding->addItem("ASCII",  static_cast<int>(AddressItem::Encoding::ASCII));
+    m_ui->comboBox_encoding->addItem("UTF-8",  static_cast<int>(AddressItem::Encoding::UTF8));
+    m_ui->comboBox_encoding->addItem("UTF-16", static_cast<int>(AddressItem::Encoding::UTF16));
 
     m_ui->lineEdit_length->setValidator(new QIntValidator(1, 4096, this));
     m_ui->lineEdit_length->setText("32");
@@ -171,14 +169,14 @@ void Add_Or_Change_Address_Dialog::populateDataTypeCombo()
 {
     m_ui->comboBox_Data_Type->blockSignals(true);
     m_ui->comboBox_Data_Type->clear();
-    m_ui->comboBox_Data_Type->addItem(tr("1字节"),   static_cast<int>(ValueType::Int8));
-    m_ui->comboBox_Data_Type->addItem(tr("2字节"),   static_cast<int>(ValueType::Int16));
-    m_ui->comboBox_Data_Type->addItem(tr("4字节"),   static_cast<int>(ValueType::Int32));
-    m_ui->comboBox_Data_Type->addItem(tr("8字节"),   static_cast<int>(ValueType::Int64));
-    m_ui->comboBox_Data_Type->addItem(tr("单浮点"),   static_cast<int>(ValueType::Float));
-    m_ui->comboBox_Data_Type->addItem(tr("双浮点"),   static_cast<int>(ValueType::Double));
-    m_ui->comboBox_Data_Type->addItem(tr("字符串"),   static_cast<int>(ValueType::String));
-    m_ui->comboBox_Data_Type->addItem(tr("字节数组"), static_cast<int>(ValueType::ByteArray));
+    m_ui->comboBox_Data_Type->addItem(tr("1字节"),   static_cast<int>(AddressItem::Type::Int8));
+    m_ui->comboBox_Data_Type->addItem(tr("2字节"),   static_cast<int>(AddressItem::Type::Int16));
+    m_ui->comboBox_Data_Type->addItem(tr("4字节"),   static_cast<int>(AddressItem::Type::Int32));
+    m_ui->comboBox_Data_Type->addItem(tr("8字节"),   static_cast<int>(AddressItem::Type::Int64));
+    m_ui->comboBox_Data_Type->addItem(tr("单浮点"),   static_cast<int>(AddressItem::Type::Float));
+    m_ui->comboBox_Data_Type->addItem(tr("双浮点"),   static_cast<int>(AddressItem::Type::Double));
+    m_ui->comboBox_Data_Type->addItem(tr("字符串"),   static_cast<int>(AddressItem::Type::String));
+    m_ui->comboBox_Data_Type->addItem(tr("字节数组"), static_cast<int>(AddressItem::Type::ByteArray));
 
     for (int i = 0; i < m_ui->comboBox_Data_Type->count(); ++i) {
         if (m_ui->comboBox_Data_Type->itemData(i).toInt() == static_cast<int>(m_initialConfig.type)) {
@@ -469,7 +467,7 @@ void Add_Or_Change_Address_Dialog::refreshPointerValue()
     }
 
     // 指针链解引用必须始终按指针宽度（64位系统为8字节）来读取地址值，
-    // 不能使用当前数据类型的字节大小（如字符串类型 valueTypeSize 返回32，Byte类型返回1）
+    // 不能使用当前数据类型的字节大小（如字符串类型 sizeof(Type) 返回32，Byte类型返回1）
     size_t ptrSize = sizeof(uint64_t);
 
     uint64_t basePtrValue = 0;
@@ -550,11 +548,11 @@ void Add_Or_Change_Address_Dialog::refreshComputedValue()
     if (!mem) { m_ui->label_computed_Value->setText(tr("=无进程")); return; }
 
     int dtIndex = m_ui->comboBox_Data_Type->currentIndex();
-    auto vt = static_cast<ValueType>(m_ui->comboBox_Data_Type->itemData(dtIndex).toInt());
+    auto vt = static_cast<AddressItem::Type>(m_ui->comboBox_Data_Type->itemData(dtIndex).toInt());
 
     QString valueStr;
 
-    if (isStringValueType(vt)) {
+    if (AddressItem::isStringType(vt)) {
         int len = m_ui->lineEdit_length->text().toInt(&ok);
         if (!ok || len <= 0) len = 32;
         if (len > 4096) len = 4096;
@@ -565,15 +563,15 @@ void Add_Or_Change_Address_Dialog::refreshComputedValue()
         }
 
         int encIdx = m_ui->comboBox_encoding->currentIndex();
-        auto enc = static_cast<StringEncoding>(m_ui->comboBox_encoding->itemData(encIdx).toInt());
+        auto enc = static_cast<AddressItem::Encoding>(m_ui->comboBox_encoding->itemData(encIdx).toInt());
 
         int realLen = 0;
-        if (enc == StringEncoding::UTF16) {
+        if (enc == AddressItem::Encoding::UTF16) {
             const char16_t* u16 = reinterpret_cast<const char16_t*>(buf.data());
             int u16len = len / 2;
             while (realLen < u16len && u16[realLen] != 0) ++realLen;
             if (realLen > 0) valueStr = QString::fromUtf16(reinterpret_cast<const char16_t*>(buf.data()), realLen);
-        } else if (enc == StringEncoding::UTF8) {
+        } else if (enc == AddressItem::Encoding::UTF8) {
             const char* data = reinterpret_cast<const char*>(buf.data());
             while (realLen < len && data[realLen] != '\0') ++realLen;
             valueStr = QString::fromUtf8(data, realLen);
@@ -585,7 +583,7 @@ void Add_Or_Change_Address_Dialog::refreshComputedValue()
         if (realLen > 64) valueStr = valueStr.left(64) + "...";
         valueStr = valueStr.toHtmlEscaped();
 
-    } else if (isByteArrayValueType(vt)) {
+    } else if (AddressItem::isByteArrayType(vt)) {
         int len = m_ui->lineEdit_length->text().toInt(&ok);
         if (!ok || len <= 0) len = 32;
         std::vector<uint8_t> buf(len);
@@ -599,7 +597,7 @@ void Add_Or_Change_Address_Dialog::refreshComputedValue()
         if (len > 16) valueStr += "...";
 
     } else {
-        size_t size = valueTypeSize(vt);
+        size_t size = AddressItem::typeSize(vt);
         uint64_t raw = 0;
         if (!mem->read(addr, &raw, size)) {
             m_ui->label_computed_Value->setText(tr("=读取失败")); return;
@@ -609,38 +607,38 @@ void Add_Or_Change_Address_Dialog::refreshComputedValue()
         bool signedDisplay = m_ui->checkBox_signed_Value->isChecked();
 
         switch (vt) {
-        case ValueType::Int8: {
+        case AddressItem::Type::Int8: {
             if (hex) valueStr = QString("0x%1").arg(static_cast<uint8_t>(raw & 0xFF), 2, 16, QChar('0'));
             else if (signedDisplay) valueStr = QString::number(static_cast<int8_t>(raw & 0xFF));
             else valueStr = QString::number(static_cast<uint8_t>(raw & 0xFF));
             break;
         }
-        case ValueType::Int16: {
+        case AddressItem::Type::Int16: {
             if (hex) valueStr = QString("0x%1").arg(static_cast<uint16_t>(raw & 0xFFFF), 4, 16, QChar('0'));
             else if (signedDisplay) valueStr = QString::number(static_cast<int16_t>(raw & 0xFFFF));
             else valueStr = QString::number(static_cast<uint16_t>(raw & 0xFFFF));
             break;
         }
-        case ValueType::Int32: {
+        case AddressItem::Type::Int32: {
             if (hex) valueStr = QString("0x%1").arg(static_cast<uint32_t>(raw), 8, 16, QChar('0'));
             else if (signedDisplay) valueStr = QString::number(static_cast<int32_t>(raw));
             else valueStr = QString::number(static_cast<uint32_t>(raw));
             break;
         }
-        case ValueType::Int64: {
+        case AddressItem::Type::Int64: {
             if (hex) valueStr = QString("0x%1").arg(raw, 16, 16, QChar('0'));
             else if (signedDisplay) valueStr = QString::number(static_cast<int64_t>(raw));
             else valueStr = QString::number(raw);
             break;
         }
-        case ValueType::Float: {
+        case AddressItem::Type::Float: {
             if (hex) { uint32_t bits; std::memcpy(&bits, &raw, sizeof(bits));
                 valueStr = QString("0x%1").arg(bits, 8, 16, QChar('0'));
             } else { float f; std::memcpy(&f, &raw, sizeof(f));
                 valueStr = QString::number(f, 'g', 7); }
             break;
         }
-        case ValueType::Double: {
+        case AddressItem::Type::Double: {
             if (hex) valueStr = QString("0x%1").arg(raw, 16, 16, QChar('0'));
             else { double d; std::memcpy(&d, &raw, sizeof(d));
                 valueStr = QString::number(d, 'g', 15); }
@@ -655,21 +653,21 @@ void Add_Or_Change_Address_Dialog::refreshComputedValue()
 
 void Add_Or_Change_Address_Dialog::updateStringControlsVisibility()
 {
-    ValueType vt = static_cast<ValueType>(m_ui->comboBox_Data_Type->currentData().toInt());
+    AddressItem::Type vt = static_cast<AddressItem::Type>(m_ui->comboBox_Data_Type->currentData().toInt());
 
-    bool isString = isStringValueType(vt);
+    bool isString = AddressItem::isStringType(vt);
     m_ui->label_length->setVisible(isString);
     m_ui->lineEdit_length->setVisible(isString);
     m_ui->comboBox_encoding->setVisible(isString);
     m_ui->checkBox_code_page->setVisible(false);
 
-    bool showHex = !isStringValueType(vt);
+    bool showHex = !AddressItem::isStringType(vt);
     m_ui->checkBox_Hex_Display->setVisible(showHex);
 
-    bool showSigned = isIntegerType(vt);
+    bool showSigned = AddressItem::isIntegerType(vt);
     m_ui->checkBox_signed_Value->setVisible(showSigned);
 
-    if (isByteArrayValueType(vt)) {
+    if (AddressItem::isByteArrayType(vt)) {
         m_ui->label_length->setVisible(true);
         m_ui->label_length->setText(tr("长度"));
         m_ui->lineEdit_length->setVisible(true);
@@ -677,16 +675,16 @@ void Add_Or_Change_Address_Dialog::updateStringControlsVisibility()
         m_ui->comboBox_encoding->setVisible(false);
     }
 
-    if (isNumericType(vt)) {
+    if (AddressItem::isNumericType(vt)) {
         m_ui->label_length->setVisible(true);
         m_ui->label_length->setText(tr("长度"));
         m_ui->lineEdit_length->setVisible(true);
         m_ui->lineEdit_length->setEnabled(false);
-        m_ui->lineEdit_length->setText(QString::number(valueTypeSize(vt)));
+        m_ui->lineEdit_length->setText(QString::number(AddressItem::typeSize(vt)));
         m_ui->comboBox_encoding->setVisible(false);
     }
 
-    if (isStringValueType(vt)) {
+    if (AddressItem::isStringType(vt)) {
         m_ui->label_length->setText(tr("长度"));
         m_ui->lineEdit_length->setEnabled(true);
         m_ui->lineEdit_length->setText("32");
@@ -759,7 +757,7 @@ AddressItem::Config Add_Or_Change_Address_Dialog::resultConfig() const
 
     // 类型
     int dtIdx = m_ui->comboBox_Data_Type->currentIndex();
-    cfg.type = static_cast<ValueType>(m_ui->comboBox_Data_Type->itemData(dtIdx).toInt());
+    cfg.type = static_cast<AddressItem::Type>(m_ui->comboBox_Data_Type->itemData(dtIdx).toInt());
 
     // Hex / Signed 显示
     cfg.hexDisplay = m_ui->checkBox_Hex_Display->isChecked();
@@ -767,7 +765,7 @@ AddressItem::Config Add_Or_Change_Address_Dialog::resultConfig() const
 
     // 编码
     int encIdx = m_ui->comboBox_encoding->currentIndex();
-    cfg.encoding = static_cast<StringEncoding>(m_ui->comboBox_encoding->itemData(encIdx).toInt());
+    cfg.encoding = static_cast<AddressItem::Encoding>(m_ui->comboBox_encoding->itemData(encIdx).toInt());
 
     // 长度
     bool lenOk = false;
@@ -789,10 +787,10 @@ AddressItem::Config Add_Or_Change_Address_Dialog::resultConfig() const
     }
 
     // buffer：对于字符串/字节数组类型，从内存重新读取
-    if (isStringValueType(cfg.type) || isByteArrayValueType(cfg.type)) {
+    if (AddressItem::isStringType(cfg.type) || AddressItem::isByteArrayType(cfg.type)) {
         auto mem = ProcessManager::instance().memory();
         if (mem && cfg.address != 0) {
-            int readLen = cfg.stringLength > 0 ? cfg.stringLength : static_cast<int>(valueTypeSize(cfg.type));
+            int readLen = cfg.stringLength > 0 ? cfg.stringLength : static_cast<int>(AddressItem::typeSize(cfg.type));
             if (readLen <= 0) readLen = 32;
             cfg.buffer.resize(readLen);
             mem->read(cfg.address, cfg.buffer.data(), readLen);
@@ -805,8 +803,8 @@ AddressItem::Config Add_Or_Change_Address_Dialog::resultConfig() const
 
 size_t Add_Or_Change_Address_Dialog::currentDataTypeSize() const
 {
-    ValueType vt = static_cast<ValueType>(m_ui->comboBox_Data_Type->currentData().toInt());
-    if (isNumericType(vt) || isByteArrayValueType(vt))
-        return valueTypeSize(vt);
+    AddressItem::Type vt = static_cast<AddressItem::Type>(m_ui->comboBox_Data_Type->currentData().toInt());
+    if (AddressItem::isNumericType(vt) || AddressItem::isByteArrayType(vt))
+        return AddressItem::typeSize(vt);
     return 1;
 }

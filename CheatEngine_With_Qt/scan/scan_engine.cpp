@@ -4,6 +4,45 @@
 #include <cstring>
 
 // =============================================================================
+// 辅助函数：将 ScanType / NextScanType 转换为 SimdOp（用于 All 类型 SIMD 加速）
+// =============================================================================
+static inline SimdOp scanFirstTypeToSimdOp(ScanType st) {
+    switch (st) {
+    case ScanType::ExactValue:   return SimdOp::Equal;
+    case ScanType::GreaterThan:  return SimdOp::Greater;
+    case ScanType::LessThan:     return SimdOp::Less;
+    default:                     return SimdOp::Equal; // fallback
+    }
+}
+static inline SimdOp scanNextTypeToSimdOp(NextScanType nt) {
+    switch (nt) {
+    case NextScanType::Equal:    return SimdOp::Equal;
+    case NextScanType::NotEqual: return SimdOp::NotEqual;
+    case NextScanType::Changed:  return SimdOp::NotEqual;
+    case NextScanType::Unchanged:return SimdOp::Equal;
+    case NextScanType::Increased:return SimdOp::Greater;
+    case NextScanType::Decreased:return SimdOp::Less;
+    default:                     return SimdOp::Equal;
+    }
+}
+// 判断是否可以使用 SIMD All 加速（首次扫描 ExactValue/GreaterThan/LessThan，无近似值，非 notMatch）
+static inline bool canUseSimdAllFirst(const ScanRequest& req) {
+    return req.alignment == 1
+        && !req.containApproximateValue
+        && !req.notMatch
+        && (req.firstType == ScanType::ExactValue ||
+            req.firstType == ScanType::GreaterThan ||
+            req.firstType == ScanType::LessThan);
+}
+// 判断是否可以使用 SIMD All 加速（再次扫描 Changed/Unchanged，非 notMatch）
+static inline bool canUseSimdAllChangedUnchanged(const ScanRequest& req) {
+    return req.alignment == 1
+        && !req.notMatch
+        && (req.nextType == NextScanType::Changed ||
+            req.nextType == NextScanType::Unchanged);
+}
+
+// =============================================================================
 // 统一的首次扫描比较泛型函数
 
 static bool needOldValueForNextScan(NextScanType nt) {
@@ -92,6 +131,19 @@ static bool instantiateFirstMatch(const uint8_t* ptr, uint64_t rawV1, uint64_t r
 
 template<typename T>
 static bool instantiateNextMatch(const uint8_t* curPtr, const uint8_t* oldPtr, uint64_t rawV1, uint64_t rawV2, const ScanRequest& req) {
+    // ★ Changed/Unchanged 使用 memcmp 位比较，避免浮点 NaN（NaN != NaN → true）导致误匹配
+    // ★ 注意处理 req.notMatch：notMatch+Changed = 未改变（取反），notMatch+Unchanged = 改变了（取反）
+    if (req.nextType == NextScanType::Changed) {
+        if (!oldPtr) return false;
+        bool isChanged = (std::memcmp(curPtr, oldPtr, sizeof(T)) != 0);
+        return req.notMatch ? !isChanged : isChanged;
+    }
+    if (req.nextType == NextScanType::Unchanged) {
+        if (!oldPtr) return false;
+        bool isUnchanged = (std::memcmp(curPtr, oldPtr, sizeof(T)) == 0);
+        return req.notMatch ? !isUnchanged : isUnchanged;
+    }
+
     T cur; std::memcpy(&cur, curPtr, sizeof(T));
     T old = 0;
     if (oldPtr) {
@@ -227,6 +279,37 @@ void ScanEngine::dispatchAllScan(const ScanRequest& request,
 	m_processSnapshotManager->setPreviousSnapshot(currentSnap);
 }
 
+/// 官方 CE 兼容的 All 类型选择：
+/// - 再次扫描：按小→大顺序检查，Byte→Int16→Int32→Float32→Int64→Float64，
+///   任何对齐兼容类型都会匹配。
+template<bool IsFirst>
+static uint16_t pickAllMatches(const uint8_t* dataPtr, const uint8_t* oldPtr,
+    uint64_t addr, size_t maxAvailSize,
+    const uint64_t typeV1[], const uint64_t typeV2[],
+    const ScanRequest& request)
+{
+    uint16_t mask = 0;
+    for (int ti = 0; ti < kAllNumTypes; ++ti) {
+        const auto& invoker = kAllTypeInvokers[ti];
+        
+        // 检查对齐和剩余空间
+        if (addr % invoker.alignment != 0) continue;
+        if (invoker.size > maxAvailSize) continue;
+
+        bool isMatch = false;
+        if constexpr (IsFirst) {
+            isMatch = invoker.matchFirst(dataPtr, typeV1[ti], typeV2[ti], request);
+        } else {
+            isMatch = invoker.matchNext(dataPtr, oldPtr, typeV1[ti], typeV2[ti], request);
+        }
+
+        if (isMatch) {
+            mask |= (1 << ti); // 记录所有匹配的类型位
+        }
+    }
+    return mask;
+}
+
 // =============================================================================
 // taskFirstScanAll — All 首次扫描：对每个对齐地址逐类型尝试
 // =============================================================================
@@ -274,34 +357,65 @@ void ScanEngine::taskFirstScanAll(const ScanRequest& request, MemoryRegion regio
 	std::vector<ScanResult> batchResults;
 	batchResults.reserve(2048);
 
+	// ★ SIMD 快速路径判定：alignment == 1 && 无近似值
+	const bool useSimd = canUseSimdAllFirst(request);
+	const SimdOp simdOp = scanFirstTypeToSimdOp(request.firstType);
+
 	for (size_t baseOffset = 0; baseOffset < region.size && !m_cancel.load(); baseOffset += chunkSize) {
 		size_t toRead = (std::min)(chunkSize, region.size - baseOffset);
 		uint64_t chunkBase = region.base + baseOffset;
 		if (!currentSnap->readData(chunkBase, memBuf.data(), toRead)) continue;
 
-		for (size_t off = 0; off + 1 <= toRead; off += 1) {
-			uint64_t addr = chunkBase + off;
-			bool matched = false;
-			int matchedTypeIdx = -1;
-
-			// 精简核心：不再使用任何庞大的 switch-case，直接并行查表调用
-			for (int ti = 0; ti < kAllNumTypes; ++ti) {
-				const auto& invoker = kAllTypeInvokers[ti];
-				if (addr % invoker.alignment != 0) continue;
-				if (off + invoker.size > toRead) continue;
-
-				if (invoker.matchFirst(memBuf.data() + off, typeV1[ti], typeV2[ti], request)) {
-					matched = true;
-					matchedTypeIdx = ti;
-					break; 
+		if (useSimd) {
+			// ── SIMD 快速路径：一次 32 字节，6 种类型同时比较 ──
+			// SIMD 部分：处理 floor(toRead / 32) * 32 字节
+			size_t simdBytes = (toRead / 32) * 32;
+			if (simdBytes > 0) {
+				std::vector<std::pair<uint64_t, uint16_t>> simdResults;
+				simdResults.reserve(simdBytes);
+				SimdScanner::scanAllTypesFirst(
+					memBuf.data(), simdBytes, chunkBase,
+					typeV1, simdOp, simdResults);
+				for (auto& pair : simdResults) {
+					batchResults.push_back({ pair.first, pair.second }); // typeMask
+					if (batchResults.size() >= 1024) {
+						outCache->push_back_batch(batchResults);
+						batchResults.clear();
+					}
 				}
 			}
+			// 尾部 < 32 字节：标量兜底
+			for (size_t off = simdBytes; off + 1 <= toRead; off += 1) {
+				uint64_t addr = chunkBase + off;
+				size_t maxAvail = toRead - off;
+				uint16_t mask = pickAllMatches<true>(
+					memBuf.data() + off, nullptr,
+					addr, maxAvail,
+					typeV1, typeV2, request);
+				if (mask != 0) {
+					batchResults.push_back({ addr, mask });
+					if (batchResults.size() >= 1024) {
+						outCache->push_back_batch(batchResults);
+						batchResults.clear();
+					}
+				}
+			}
+		} else {
+			// ── 标量回退 ──
+			for (size_t off = 0; off + 1 <= toRead; off += 1) {
+				uint64_t addr = chunkBase + off;
+				size_t maxAvail = toRead - off;
+				uint16_t mask = pickAllMatches<true>(
+					memBuf.data() + off, nullptr,
+					addr, maxAvail,
+					typeV1, typeV2, request);
 
-			if (matched && matchedTypeIdx >= 0) {
-				batchResults.push_back({ addr, kAllTypeInvokers[matchedTypeIdx].type });
-				if (batchResults.size() >= 1024) {
-					outCache->push_back_batch(batchResults);
-					batchResults.clear();
+				if (mask != 0) {
+					batchResults.push_back({ addr, mask });
+					if (batchResults.size() >= 1024) {
+						outCache->push_back_batch(batchResults);
+						batchResults.clear();
+					}
 				}
 			}
 		}
@@ -309,6 +423,15 @@ void ScanEngine::taskFirstScanAll(const ScanRequest& request, MemoryRegion regio
 
 	if (!batchResults.empty()) outCache->push_back_batch(batchResults);
 	m_progress.fetch_add(1);
+}
+
+// 辅助函数：在 All 类型列表中查找给定 ScanDataType 的索引
+// 返回 -1 表示未找到（通常是字符串/AOB等非数值类型）
+static inline int findTypeIndex(ScanDataType dt) {
+    for (int i = 0; i < kAllNumTypes; ++i) {
+        if (kAllTypeInvokers[i].type == dt) return i;
+    }
+    return -1;
 }
 
 // =============================================================================
@@ -379,29 +502,36 @@ void ScanEngine::taskNextScanAll(const ScanRequest& request,
 			}
 		}
 
-		bool matched = false;
-		int matchedTypeIdx = -1;
-
-		for (int ti = 0; ti < kAllNumTypes; ++ti) {
-			const auto& invoker = kAllTypeInvokers[ti];
-			if (addr % invoker.alignment != 0) continue;
-			if (invoker.size > maxRead) continue;
-
-			if (invoker.matchNext(curBuf, targetOldPtr, typeV1[ti], typeV2[ti], request)) {
-				matched = true;
-				matchedTypeIdx = ti;
-				break;
+		// ★ 使用 typeMask 全面匹配：基于旧的 typeMask 偏好 + 全面兜底
+		uint16_t mask = 0;
+		if (res.typeMask != 0) {
+			// 优先尝试旧的 typeMask 中标记的类型
+			for (int ti = 0; ti < kAllNumTypes; ++ti) {
+				if (!(res.typeMask & (1 << ti))) continue;
+				const auto& invoker = kAllTypeInvokers[ti];
+				if (addr % invoker.alignment != 0) continue;
+				if (invoker.size > maxRead) continue;
+				if (invoker.matchNext(curBuf, targetOldPtr, typeV1[ti], typeV2[ti], request)) {
+					mask |= (1 << ti);
+				}
 			}
 		}
+		// ★ 如果没有旧的 typeMask 或旧类型都没匹配上，兜底全部重新匹配
+		if (mask == 0) {
+			mask = pickAllMatches<false>(curBuf, targetOldPtr,
+				addr, maxRead,
+				typeV1, typeV2, request);
+		}
 
-		if (matched && matchedTypeIdx >= 0) {
-			survivors.push_back({ addr, kAllTypeInvokers[matchedTypeIdx].type });
+		if (mask != 0) {
+			survivors.push_back({ addr, mask });
 		}
 	}
 
 	if (!survivors.empty()) outCache->push_back_batch(survivors);
 	m_progress.fetch_add(static_cast<int>(oldBatch.size()));
 }
+
 
 // =============================================================================
 // taskFullScanWithNextConditionAll — All + UnknownInitial 再次扫描
@@ -427,7 +557,7 @@ void ScanEngine::taskFullScanWithNextConditionAll(const ScanRequest& request, Me
 		if (request.containApproximateValue && (request.nextType == NextScanType::Equal || request.nextType == NextScanType::NotEqual)) {
 			{
 				float target; std::memcpy(&target, &p->value1, sizeof(float));
-				float lo = target * 0.05f, hi = target * 1.05f; // 同等逻辑容差
+				float lo = target * 0.95f, hi = target * 1.05f;
 				if (target >= 0 && lo < -0.0001f) lo = 0.0f;
 				if (hi - lo < 0.0001f) { lo = target - 0.0001f; hi = target + 0.0001f; }
 				std::memcpy(&typeV1[4], &lo, sizeof(float));
@@ -435,7 +565,7 @@ void ScanEngine::taskFullScanWithNextConditionAll(const ScanRequest& request, Me
 			}
 			{
 				double target; std::memcpy(&target, &p->value1, sizeof(double));
-				double lo = target * 0.05, hi = target * 1.05;
+				double lo = target * 0.95, hi = target * 1.05;
 				if (target >= 0 && lo < -0.0001) lo = 0.0;
 				if (hi - lo < 0.0001) { lo = target - 0.0001; hi = target + 0.0001; }
 				std::memcpy(&typeV1[5], &lo, sizeof(double));
@@ -454,6 +584,9 @@ void ScanEngine::taskFullScanWithNextConditionAll(const ScanRequest& request, Me
 	bool needsPrevBuf = needOldValueForNextScan(request.nextType);
 	auto* srcSnap = (request.nextType == NextScanType::Compare_to_First_Scan) ? firstSnap.get() : previousSnapshot.get();
 
+	// ★ SIMD 快速路径判定：Changed / Unchanged + alignment==1 + 无近似值
+	const bool useSimdChanged = canUseSimdAllChangedUnchanged(request);
+
 	for (size_t baseOffset = 0; baseOffset < region.size && !m_cancel.load(); baseOffset += chunkSize) {
 		size_t toRead = (std::min)(chunkSize, region.size - baseOffset);
 		uint64_t chunkBase = region.base + baseOffset;
@@ -463,30 +596,60 @@ void ScanEngine::taskFullScanWithNextConditionAll(const ScanRequest& request, Me
 			if (!srcSnap || !srcSnap->readData(chunkBase, prevBuf.data(), toRead)) continue;
 		}
 
-		for (size_t off = 0; off + 1 <= toRead && !m_cancel.load(); off += 1) {
-			uint64_t addr = chunkBase + off;
-			bool matched = false;
-			int matchedTypeIdx = -1;
-
-			const uint8_t* targetOldPtr = needsPrevBuf ? (prevBuf.data() + off) : nullptr;
-
-			for (int ti = 0; ti < kAllNumTypes; ++ti) {
-				const auto& invoker = kAllTypeInvokers[ti];
-				if (addr % invoker.alignment != 0) continue;
-				if (off + invoker.size > toRead) continue;
-
-				if (invoker.matchNext(curBuf.data() + off, targetOldPtr, typeV1[ti], typeV2[ti], request)) {
-					matched = true;
-					matchedTypeIdx = ti;
-					break;
+		if (useSimdChanged) {
+			// ── SIMD 快速路径：Changed/Unchanged，一次 32 字节，6 种类型同时判定 ──
+			size_t simdBytes = (toRead / 32) * 32;
+			if (simdBytes > 0) {
+				std::vector<std::pair<uint64_t, uint16_t>> simdResults;
+				simdResults.reserve(simdBytes);
+				SimdScanner::scanAllTypesChangedUnchanged(
+					curBuf.data(), prevBuf.data(),
+					simdBytes, chunkBase,
+					(request.nextType == NextScanType::Unchanged),
+					simdResults);
+				for (auto& pair : simdResults) {
+					batchResults.push_back({ pair.first, pair.second }); // typeMask
+					if (batchResults.size() >= 4096) {
+						outCache->push_back_batch(batchResults);
+						batchResults.clear();
+					}
 				}
 			}
+			// 尾部 < 32 字节：标量兜底
+			for (size_t off = simdBytes; off + 1 <= toRead && !m_cancel.load(); off += 1) {
+				uint64_t addr = chunkBase + off;
+				size_t maxAvail = toRead - off;
+				const uint8_t* targetOldPtr = needsPrevBuf ? (prevBuf.data() + off) : nullptr;
+				uint16_t mask = pickAllMatches<false>(
+					curBuf.data() + off, targetOldPtr,
+					addr, maxAvail,
+					typeV1, typeV2, request);
+				if (mask != 0) {
+					batchResults.push_back({ addr, mask });
+					if (batchResults.size() >= 4096) {
+						outCache->push_back_batch(batchResults);
+						batchResults.clear();
+					}
+				}
+			}
+		} else {
+			// ── 标量路径：使用 pickAllMatches 获取完整 typeMask ──
+			for (size_t off = 0; off + 1 <= toRead && !m_cancel.load(); off += 1) {
+				uint64_t addr = chunkBase + off;
+				size_t maxAvail = toRead - off;
+				const uint8_t* targetOldPtr = needsPrevBuf ? (prevBuf.data() + off) : nullptr;
 
-			if (matched && matchedTypeIdx >= 0) {
-				batchResults.push_back({ addr, kAllTypeInvokers[matchedTypeIdx].type });
-				if (batchResults.size() >= 4096) {
-					outCache->push_back_batch(batchResults);
-					batchResults.clear();
+				uint16_t mask = pickAllMatches<false>(
+					curBuf.data() + off, targetOldPtr,
+					addr, maxAvail,
+					typeV1, typeV2, request);
+
+				if (mask != 0) {
+					batchResults.push_back({ addr, mask });
+					if (batchResults.size() >= 4096) {
+						outCache->push_back_batch(batchResults);
+						batchResults.clear();
+					}
 				}
 			}
 		}

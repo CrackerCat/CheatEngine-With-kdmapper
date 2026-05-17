@@ -156,11 +156,27 @@ struct StructureParams {
 using ScanParams = std::variant<ValueParams, StringParams, AobParams, StructureParams>;
 
 
+namespace AllTypeMask {
+    enum : uint16_t {
+        Int8    = 1 << 0,
+        Int16   = 1 << 1,
+        Int32   = 1 << 2,
+        Int64   = 1 << 3,
+        Float   = 1 << 4,
+        Double  = 1 << 5
+    };
+}
+
+#pragma pack(push, 1)
 struct ScanResult
 {
     uint64_t address;
-    ScanDataType matchedType = ScanDataType::All; // All扫描时记录此地址匹配的类型；非All扫描时忽略
+    uint16_t typeMask = 0; 
+    
+    // 辅助方法：判断是否包含某种类型
+    bool hasType(uint16_t mask) const { return (typeMask & mask) != 0; }
 };
+#pragma pack(pop)
 
 
 // 扫描请求（唯一入口）
@@ -199,4 +215,23 @@ inline bool isStringType(ScanDataType t) {
 
 inline bool isByteArrayType(ScanDataType t) {
     return t == ScanDataType::ByteArray;
+}
+
+inline std::string scanDataTypeToString(ScanDataType t) {
+    switch (t) {
+    case ScanDataType::Bit:         return "Bit";
+    case ScanDataType::Int8:        return "Byte";
+    case ScanDataType::Int16:       return "2 Bytes";
+    case ScanDataType::Int32:       return "4 Bytes";
+    case ScanDataType::Int64:       return "8 Bytes";
+    case ScanDataType::Float32:     return "Float";
+    case ScanDataType::Float64:     return "Double";
+    case ScanDataType::AsciiString: return "String (Ascii)";
+    case ScanDataType::Utf8String:  return "String (UTF-8)";
+    case ScanDataType::Utf16String: return "String (UTF-16)";
+    case ScanDataType::ByteArray:   return "Array of Byte";
+    case ScanDataType::All:         return "All";
+    case ScanDataType::Structure:   return "Structure";
+    default:                        return "Unknown";
+    }
 }
