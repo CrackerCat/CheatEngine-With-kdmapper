@@ -232,23 +232,35 @@ public:
 
 private:
     /// @brief 核心方法：为每个线程按需创建或返回已有的子缓存
-    AdaptiveCache<T>& getThreadLocalCache() {
-        thread_local std::string tid = [] {
-            std::stringstream ss;
-            ss << std::this_thread::get_id();
-            return ss.str();
-            }();
+   AdaptiveCache<T>& getThreadLocalCache() {
+        // 使用两个线程本地变量，同时记录“最后一次服务的池实例”和“对应的子缓存”
+        thread_local const void* lastSeenPoolId = nullptr;
+        thread_local AdaptiveCache<T>* localCacheInstance = nullptr;
 
-        // 只有在第一次创建该线程的子缓存时才加锁
+        // ★ 核心防御逻辑：只有当当前执行线程服务的池实例就是当前 this 实例时，才允许走极速无锁路径
+        if (lastSeenPoolId == this) [[likely]] {
+            return *localCacheInstance;
+        }
+
+        // 如果 pool 实例变了（说明是新一轮扫描），或者首次进入，乖乖走加锁查表流程（每轮扫描每条线程仅触发一次）
         std::lock_guard<std::mutex> lock(m_poolMtx);
+        
+        std::stringstream ss;
+        ss << std::this_thread::get_id();
+        std::string tid = ss.str();
+
         auto it = m_subCaches.find(tid);
         if (it == m_subCaches.end()) {
             auto newCache = std::make_unique<AdaptiveCache<T>>(m_perThreadThreshold, tid);
-            auto& ref = *newCache;
+            localCacheInstance = newCache.get();
             m_subCaches[tid] = std::move(newCache);
-            return ref;
+        } else {
+            localCacheInstance = it->second.get();
         }
-        return *(it->second);
+        
+        // 重新绑定，刷新当前线程的认知
+        lastSeenPoolId = this; 
+        return *localCacheInstance;
     }
 
     mutable std::mutex m_poolMtx;

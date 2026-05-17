@@ -65,34 +65,24 @@ void ScanResultViewModel::rebuildAllCaches() {
 	size_t count = std::min(m_filteredIndices.size(), static_cast<size_t>(MAX_DISPLAY));
 
 	// 4. 预分配所有容器空间
-	m_cacheAddress.resize(count);
-	m_cacheCurrent.resize(count);
-	m_cachePrevious.resize(count);
-	m_cacheFirst.resize(count);
-	m_cacheIsBase.resize(count);
+    m_rowCaches.clear();
+    m_rowCaches.reserve(count); // 一次分配
 
 	// 5. 一次性填充静态值（这些值在本次扫描会话中不会改变）
 	for (size_t i = 0; i < count; ++i) {
-		size_t realIdx = m_filteredIndices[i];
-		uint64_t addr = m_repo->getAddressAtIndex(realIdx);
+        size_t realIdx = m_filteredIndices[i];
+        uint64_t addr = m_repo->getAddressAtIndex(realIdx);
+        ScanDataType effectiveType = m_displayType;
 
-		// 缓存地址列显示文本（涉及模块解析，IO 较重）
-		m_cacheAddress[i] = m_valueProvider->getAddressDisplay(addr);
+        RowUiCache row;
+        row.address  = m_valueProvider->getAddressDisplay(addr);
+        row.isBase   = m_valueProvider->isModuleBase(addr);
+        row.previous = m_valueProvider->getPreviousValue(addr, effectiveType);
+        row.first    = m_valueProvider->getFirstValue(addr, effectiveType);
+        row.current  = m_valueProvider->getCurrentValue(addr, effectiveType);
 
-		// 缓存基址标记用于颜色高亮
-		m_cacheIsBase[i] = m_valueProvider->isModuleBase(addr);
-
-		// ★ All 模式下统一用 m_displayType 显示（所有行相同类型）
-		//    用户如果想看其他类型的值，可以切换显示类型；导入地址列表后手动选类型
-		ScanDataType effectiveType = m_displayType;
-
-		// 从磁盘快照读取历史值并转为字符串（涉及文件 IO）
-		m_cachePrevious[i] = m_valueProvider->getPreviousValue(addr, effectiveType);
-		m_cacheFirst[i] = m_valueProvider->getFirstValue(addr, effectiveType);
-
-		// 填充初始当前值
-		m_cacheCurrent[i] = m_valueProvider->getCurrentValue(addr, effectiveType);
-	}
+        m_rowCaches.push_back(std::move(row));
+    }
 
 	// 6. 通知过滤计数变化（用于更新 UI 标签）
 	int totalCount = static_cast<int>(m_filteredIndices.size());
@@ -141,7 +131,7 @@ void ScanResultViewModel::clearModuleFilter() {
 
 bool ScanResultViewModel::updateRowCache(int row) {
 	// 边界检查
-	if (row < 0 || row >= static_cast<int>(m_cacheCurrent.size())) return false;
+	if (row < 0 || row >= static_cast<int>(m_rowCaches.size())) return false;
 
 	size_t realIdx = m_filteredIndices[row];
 	uint64_t addr = m_repo->getAddressAtIndex(realIdx);
@@ -153,8 +143,8 @@ bool ScanResultViewModel::updateRowCache(int row) {
 	std::string newVal = m_valueProvider->getCurrentValue(addr, effectiveType);
 
 	// 只有当字符串发生变化时才更新，减少 UI 刷新压力
-	if (newVal != m_cacheCurrent[row]) {
-		m_cacheCurrent[row] = std::move(newVal);
+	if (newVal != m_rowCaches[row].current) {
+		m_rowCaches[row].current = std::move(newVal);
 		return true;
 	}
 	return false;
@@ -162,13 +152,13 @@ bool ScanResultViewModel::updateRowCache(int row) {
 
 
 void ScanResultViewModel::refreshCurrentValues() {
-	if (!m_repo || m_cacheCurrent.empty()) return;
+	if (!m_repo || m_rowCaches.empty()) return;
 
 	int firstChanged = -1;
 	int lastChanged = -1;
 
 	// 遍历已缓存的行
-	for (size_t i = 0; i < m_cacheCurrent.size(); ++i) {
+	for (size_t i = 0; i < m_rowCaches.size(); ++i) {
 		if (updateRowCache(static_cast<int>(i))) {
 			if (firstChanged == -1) firstChanged = static_cast<int>(i);
 			lastChanged = static_cast<int>(i);
@@ -201,28 +191,28 @@ int ScanResultViewModel::columnCount(const QModelIndex& parent) const
 
 
 QVariant ScanResultViewModel::data(const QModelIndex& index, int role) const {
-	if (!index.isValid() || index.row() >= (int)m_cacheCurrent.size()) return {};
+	if (!index.isValid() || index.row() >= (int)m_rowCaches.size()) return {};
 
-	int row = index.row();
-	int col = index.column();
+	const auto& row = m_rowCaches[index.row()];
+    int col = index.column();
 
 	if (role == Qt::DisplayRole) {
 		switch (col) {
-		case 0: return QString::fromStdString(m_cacheAddress[row]);
-		case 1: return QString::fromStdString(m_cacheCurrent[row]);
-		case 2: return QString::fromStdString(m_cachePrevious[row]);
-		case 3: return QString::fromStdString(m_cacheFirst[row]);
+		    case 0: return QString::fromStdString(row.address);
+            case 1: return QString::fromStdString(row.current);
+            case 2: return QString::fromStdString(row.previous);
+            case 3: return QString::fromStdString(row.first);
 		}
 	}
 	else if (role == Qt::ForegroundRole) {
 		if (col == 0) {
 			// 这里可以通过之前缓存的标记来判断，避免调用 resolveAddress
-			uint64_t addr = m_repo->getAddressAtIndex(m_filteredIndices[row]);
+			uint64_t addr = m_repo->getAddressAtIndex(m_filteredIndices[index.row()]);
 			if (m_valueProvider->isModuleBase(addr)) return QBrush(Qt::green);
 		}
 		else if (col == 1) {
 			// 直接比较内存缓存字符串，极快
-			if (m_cacheCurrent[row] != m_cachePrevious[row] && m_cachePrevious[row] != "---") {
+			if (row.current != row.previous && row.previous != "---") {
 				return QBrush(Qt::red);
 			}
 		}

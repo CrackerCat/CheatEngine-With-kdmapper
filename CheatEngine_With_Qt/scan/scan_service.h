@@ -68,9 +68,4 @@ private:
 	std::atomic<bool> m_cancelling{ false };
 
 	std::atomic<bool> m_expectEmptyResults{ false }; //未知的初始值使用
-
-
-	// 记录首次扫描的快照路径和索引
-	std::string m_firstPath;
-	std::map<uint64_t, size_t> m_firstIndex;
 };

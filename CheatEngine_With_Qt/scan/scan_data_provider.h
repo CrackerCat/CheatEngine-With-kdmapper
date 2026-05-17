@@ -4,6 +4,7 @@
 #include "process\process_memory_snapshot_manager.h"
 #include <memory>
 #include <string>
+#include <functional>
 
 class ScanDataProvider : public IScanValueProvider {
 public:
@@ -26,9 +27,13 @@ public:
 	bool isHexDisplay() const override { return m_hexDisplay; }
 
 private:
+    template<typename ReaderFunc>
+	std::string readAndFormatGeneric(uint64_t address, ScanDataType type, ReaderFunc&& readFn) const;
+	
+	
 	std::string readValueFromSnapshot(uint64_t address, ScanDataType type, const std::shared_ptr<IProcessMemorySnapshot>& snapshot) const;
 
-	std::string readCurrentFromMemory(uint64_t address, ScanDataType type) const;
+	
 
 	ProcessMemorySnapshotManager* m_processSnapshotManager; // 持有管理快照访问的指针（不拥有所有权）
 	ScanDataType m_displayType;  // 用于格式化，但接口允许指定 type，优先使用传入 type
