@@ -471,26 +471,22 @@ void AddressListModel::refreshValues(std::shared_ptr<IMemoryAccessor> mem)
 {
     if (!mem || m_items.empty()) return;
 
-    int firstChanged = -1;
-    int lastChanged = -1;
+    // ★ 强制刷新所有条目：无条件对所有条目调用 refreshValue，
+    //    然后发送不限定 roles 的 dataChanged（所有角色缓存全部失效），
+    //    彻底解决"改变列宽才更新"的问题。
+    QModelIndex top = index(0, 0);
+    QModelIndex bottom = index(m_items.size() - 1, ColumnCount_ - 1);
 
     for (int i = 0; i < m_items.size(); ++i) {
-        auto& item = m_items[i];
-        bool oldChanged = item.m_changed;
-        item.refreshValue(mem);
-
-        if (item.m_changed != oldChanged) {
-            if (firstChanged == -1) firstChanged = i;
-            lastChanged = i;
-        }
+        m_items[i].refreshValue(mem);
     }
 
-    if (firstChanged != -1) {
-        QModelIndex top = index(firstChanged, ColValue);
-        QModelIndex bottom = index(lastChanged, ColValue);
-        emit dataChanged(top, bottom, { Qt::DisplayRole, Qt::ForegroundRole });
-    }
+    // ★ 不指定 roles 列表 = 所有角色全部失效
+    //    这比只传 {DisplayRole, ForegroundRole}
+    //    更能强制 Qt 视图完全重绘（包括已缓存的 EditRole 等）
+    emit dataChanged(top, bottom);
 }
+
 
 void AddressListModel::freezeAll(std::shared_ptr<IMemoryAccessor> mem)
 {

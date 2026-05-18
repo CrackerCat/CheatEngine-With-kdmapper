@@ -6,6 +6,7 @@
 #include <QCheckBox>
 #include <QPushButton>
 #include <QHBoxLayout>
+#include <QTimer>
 #include <memory>
 #include <vector>
 #include "address_list/address_item.h"
@@ -95,4 +96,7 @@ private:
 
     std::vector<PointerLevelWidgets> m_pointerLevels;
     uint64_t m_lastPointerFinalAddr = 0;
+
+    // ── 实时值自动刷新定时器 ──
+    QTimer* m_refreshTimer = nullptr;
 };

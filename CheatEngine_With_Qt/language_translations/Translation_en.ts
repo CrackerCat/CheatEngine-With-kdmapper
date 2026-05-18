@@ -14,7 +14,7 @@
         <translation>Change_Address</translation>
     </message>
     <message>
-        <location line="+67"/>
+        <location line="+84"/>
         <source>1字节</source>
         <translation>1 Byte</translation>
     </message>

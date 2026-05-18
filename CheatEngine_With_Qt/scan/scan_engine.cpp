@@ -325,24 +325,41 @@ void ScanEngine::taskFirstScanAll(const ScanRequest& request, MemoryRegion regio
 	uint64_t typeV2[kAllNumTypes] = {0};
 
 	if (p) {
-		for (int ti = 0; ti < kAllNumTypes; ++ti) {
+		// 整数类型(0~3)直接传递原始整数值
+		for (int ti = 0; ti < 4; ++ti) {
 			typeV1[ti] = p->value1;
 			typeV2[ti] = p->value2;
 		}
+		// ★ 修复：浮点类型(4=Float32,5=Float64)将输入的整数值转换为正确的浮点数值
+		//   例：输入值 0x7FF700000000（十进制 549609508634624），
+		//   Float32 应为 549609508634624.0f，Float64 应为 549609508634624.0
+		{
+			float f1 = static_cast<float>(p->value1);
+			std::memcpy(&typeV1[4], &f1, sizeof(float));
+			double d1 = static_cast<double>(p->value1);
+			std::memcpy(&typeV1[5], &d1, sizeof(double));
+		}
+		{
+			float f2 = static_cast<float>(p->value2);
+			std::memcpy(&typeV2[4], &f2, sizeof(float));
+			double d2 = static_cast<double>(p->value2);
+			std::memcpy(&typeV2[5], &d2, sizeof(double));
+		}
+		// 近似值容差基于已正确转换的浮点值
 		if (request.containApproximateValue && request.firstType == ScanType::ExactValue) {
-			// Float32 (index 4) 近似容差预算
+			// Float32 (index 4)
 			{
-				float target; std::memcpy(&target, &p->value1, sizeof(float));
-				float lo = target * 0.99f, hi = target * 1.01f;
+				float target; std::memcpy(&target, &typeV1[4], sizeof(float));
+				float lo = target * 0.95f, hi = target * 1.05f;
 				if (target >= 0 && lo < -0.0001f) lo = 0.0f;
 				if (hi - lo < 0.0001f) { lo = target - 0.0001f; hi = target + 0.0001f; }
 				std::memcpy(&typeV1[4], &lo, sizeof(float));
 				std::memcpy(&typeV2[4], &hi, sizeof(float));
 			}
-			// Float64 (index 5) 近似容差预算
+			// Float64 (index 5)
 			{
-				double target; std::memcpy(&target, &p->value1, sizeof(double));
-				double lo = target * 0.99, hi = target * 1.01;
+				double target; std::memcpy(&target, &typeV1[5], sizeof(double));
+				double lo = target * 0.95, hi = target * 1.05;
 				if (target >= 0 && lo < -0.0001) lo = 0.0;
 				if (hi - lo < 0.0001) { lo = target - 0.0001; hi = target + 0.0001; }
 				std::memcpy(&typeV1[5], &lo, sizeof(double));
@@ -451,14 +468,29 @@ void ScanEngine::taskNextScanAll(const ScanRequest& request,
 	uint64_t typeV2[kAllNumTypes] = {0};
 
 	if (p) {
-		for (int ti = 0; ti < kAllNumTypes; ++ti) {
+		// 整数类型(0~3)直接传递原始整数值
+		for (int ti = 0; ti < 4; ++ti) {
 			typeV1[ti] = p->value1;
 			typeV2[ti] = p->value2;
 		}
+		// ★ 修复：浮点类型(4=Float32,5=Float64)将输入的整数值转换为正确的浮点数值
+		{
+			float f1 = static_cast<float>(p->value1);
+			std::memcpy(&typeV1[4], &f1, sizeof(float));
+			double d1 = static_cast<double>(p->value1);
+			std::memcpy(&typeV1[5], &d1, sizeof(double));
+		}
+		{
+			float f2 = static_cast<float>(p->value2);
+			std::memcpy(&typeV2[4], &f2, sizeof(float));
+			double d2 = static_cast<double>(p->value2);
+			std::memcpy(&typeV2[5], &d2, sizeof(double));
+		}
+		// 近似值容差基于已正确转换的浮点值
 		if (request.containApproximateValue && (request.nextType == NextScanType::Equal || request.nextType == NextScanType::NotEqual)) {
 			// Float32 (index 4)
 			{
-				float target; std::memcpy(&target, &p->value1, sizeof(float));
+				float target; std::memcpy(&target, &typeV1[4], sizeof(float));
 				float lo = target * 0.95f, hi = target * 1.05f;
 				if (target >= 0 && lo < -0.0001f) lo = 0.0f;
 				if (hi - lo < 0.0001f) { lo = target - 0.0001f; hi = target + 0.0001f; }
@@ -467,7 +499,7 @@ void ScanEngine::taskNextScanAll(const ScanRequest& request,
 			}
 			// Float64 (index 5)
 			{
-				double target; std::memcpy(&target, &p->value1, sizeof(double));
+				double target; std::memcpy(&target, &typeV1[5], sizeof(double));
 				double lo = target * 0.95, hi = target * 1.05;
 				if (target >= 0 && lo < -0.0001) lo = 0.0;
 				if (hi - lo < 0.0001) { lo = target - 0.0001; hi = target + 0.0001; }
@@ -550,13 +582,28 @@ void ScanEngine::taskFullScanWithNextConditionAll(const ScanRequest& request, Me
 	uint64_t typeV2[kAllNumTypes] = {0};
 
 	if (p) {
-		for (int ti = 0; ti < kAllNumTypes; ++ti) {
+		// 整数类型(0~3)直接传递原始整数值
+		for (int ti = 0; ti < 4; ++ti) {
 			typeV1[ti] = p->value1;
 			typeV2[ti] = p->value2;
 		}
+		// ★ 修复：浮点类型(4=Float32,5=Float64)将输入的整数值转换为正确的浮点数值
+		{
+			float f1 = static_cast<float>(p->value1);
+			std::memcpy(&typeV1[4], &f1, sizeof(float));
+			double d1 = static_cast<double>(p->value1);
+			std::memcpy(&typeV1[5], &d1, sizeof(double));
+		}
+		{
+			float f2 = static_cast<float>(p->value2);
+			std::memcpy(&typeV2[4], &f2, sizeof(float));
+			double d2 = static_cast<double>(p->value2);
+			std::memcpy(&typeV2[5], &d2, sizeof(double));
+		}
+		// 近似值容差基于已正确转换的浮点值
 		if (request.containApproximateValue && (request.nextType == NextScanType::Equal || request.nextType == NextScanType::NotEqual)) {
 			{
-				float target; std::memcpy(&target, &p->value1, sizeof(float));
+				float target; std::memcpy(&target, &typeV1[4], sizeof(float));
 				float lo = target * 0.95f, hi = target * 1.05f;
 				if (target >= 0 && lo < -0.0001f) lo = 0.0f;
 				if (hi - lo < 0.0001f) { lo = target - 0.0001f; hi = target + 0.0001f; }
@@ -564,7 +611,7 @@ void ScanEngine::taskFullScanWithNextConditionAll(const ScanRequest& request, Me
 				std::memcpy(&typeV2[4], &hi, sizeof(float));
 			}
 			{
-				double target; std::memcpy(&target, &p->value1, sizeof(double));
+				double target; std::memcpy(&target, &typeV1[5], sizeof(double));
 				double lo = target * 0.95, hi = target * 1.05;
 				if (target >= 0 && lo < -0.0001) lo = 0.0;
 				if (hi - lo < 0.0001) { lo = target - 0.0001; hi = target + 0.0001; }

@@ -163,6 +163,23 @@ void Add_Or_Change_Address_Dialog::setupUi()
     disconnect(m_ui->buttonBox, &QDialogButtonBox::accepted, this, nullptr);
     connect(m_ui->buttonBox, &QDialogButtonBox::accepted,
             this, &Add_Or_Change_Address_Dialog::validateInput);
+
+    // ── 实时值自动刷新定时器（每 200ms 刷新一次显示值） ──
+    //    指针模式下必须调用 refreshPointerValue() 重新解引用指针链，
+    //    才能得到最新的最终地址，再读取该地址的当前值。
+    m_refreshTimer = new QTimer(this);
+    connect(m_refreshTimer, &QTimer::timeout, this, [this]() {
+        m_lastPointerFinalAddr = 0;  // 强制重算，避免内部短路
+        if (m_ui->checkBox_pointer->isChecked()) {
+            m_ui->lineEdit_address->blockSignals(true);
+            refreshPointerValue();
+            m_ui->lineEdit_address->blockSignals(false);
+        } else {
+            refreshComputedValue();
+        }
+    });
+    m_refreshTimer->start(200);
+
 }
 
 void Add_Or_Change_Address_Dialog::populateDataTypeCombo()
